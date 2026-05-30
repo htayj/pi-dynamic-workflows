@@ -68,6 +68,8 @@ Ask for a background workflow (the model passes `background: true`) and it runs 
 
 `/deep-research` fans out web searches across several angles, fetches the top sources with real `web_search` / `web_fetch` tools, keeps only claims supported by multiple sources, and writes a cited report.
 
+Save any run as a reusable command: `/workflows save <name>` writes the most recent run's script to `.pi/workflows/saved/<name>.json`, and it immediately becomes `/<name>` (arguments parsed as `key=value` + positionals into `args`).
+
 ## Workflow script shape
 
 A workflow is plain JavaScript. The first statement must export literal metadata:
@@ -146,6 +148,7 @@ Scripts run inside a Node `vm` sandbox. Intentionally unavailable: `Date.now()`,
 - **Real per-agent / per-phase model routing** — `opts.model` and `meta.phases[].model` actually select the model (resolved against your authed model registry), with graceful fallback
 - **`/workflows` command** — list, inspect, stop, pause, **resume**, and remove background runs; runs started with `background: true` are reachable from the command
 - **Bundled `/deep-research` & `/adversarial-review`** — `/deep-research` runs real web searches (via built-in `web_search` / `web_fetch` tools), extracts claims, cross-checks them across sources, and reports only what survived; `/adversarial-review` investigates a task then has independent skeptics try to refute each finding, keeping only those that clear an agreement threshold
+- **Saved workflows as `/<name>`** — save a run's script with `/workflows save <name>` and it becomes a reusable slash command; arguments are parsed (`key=value` and positionals) and passed through as `args`
 - **Resume** — each agent result is journaled by a deterministic call index; resuming replays the unchanged prefix from cache (no re-run, no tokens) and runs only new or edited calls live
 - **Worktree isolation** — `isolation: "worktree"` runs an agent in its own git worktree on a throwaway branch, so parallel agents can edit the same files without conflict; the worktree is torn down after (results are not auto-merged), and it falls back to a logged no-op outside a git repo
 - **Safety limits** — 1000-agent cap (`maxAgents`), per-agent timeout (`agentTimeoutMs`), recoverable-vs-fatal error classification
@@ -156,7 +159,6 @@ Scripts run inside a Node `vm` sandbox. Intentionally unavailable: `Date.now()`,
 
 Tracked toward closer parity with Claude Code dynamic workflows:
 
-- **Saved workflows** as `/<name>` slash commands
 - **Nested `workflow()`** to compose saved workflows inline
 
 ## How it works

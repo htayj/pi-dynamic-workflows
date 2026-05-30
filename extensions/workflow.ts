@@ -2,6 +2,7 @@ import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import {
   createWorkflowStorage,
   createWorkflowTool,
+  registerAllSavedWorkflows,
   registerBuiltinWorkflows,
   registerWorkflowCommands,
   WorkflowManager,
@@ -16,8 +17,9 @@ export default function extension(pi: ExtensionAPI) {
 
   const workflowTool = createWorkflowTool({ cwd, manager, storage });
   pi.registerTool(workflowTool);
-  registerWorkflowCommands(pi, manager);
+  registerWorkflowCommands(pi, manager, { storage, cwd });
   registerBuiltinWorkflows(pi, { cwd });
+  registerAllSavedWorkflows(pi, cwd, storage);
 
   pi.on("session_start", () => {
     const active = pi.getActiveTools();

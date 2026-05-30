@@ -38,6 +38,11 @@ export type { ModelRoute, ModelRoutingConfig } from "./model-routing.js";
 export { buildModelRoutingInstructions, parseModelRoutingFromMeta, resolveModelForPhase } from "./model-routing.js";
 export type { PersistedRunState, RunPersistence, RunStatus } from "./run-persistence.js";
 export { createRunPersistence, generateRunId } from "./run-persistence.js";
+export {
+  parseCommandArgs,
+  registerAllSavedWorkflows,
+  registerSavedWorkflow,
+} from "./saved-commands.js";
 export type { StructuredOutputCapture, StructuredOutputToolOptions } from "./structured-output.js";
 export { createStructuredOutputTool } from "./structured-output.js";
 export { createWebFetchTool, createWebSearchTool, createWebTools } from "./web-tools.js";
