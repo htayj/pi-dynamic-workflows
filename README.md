@@ -133,7 +133,8 @@ Scripts run inside a Node `vm` sandbox. Intentionally unavailable: `Date.now()`,
 - **Structured output** — JSON-Schema-validated subagent results
 - **Real token & cost accounting** — read from each subagent's SDK session (input / output / total / cost), with a character estimate only as fallback when a provider reports no usage; `budget` gates on the real total
 - **Real per-agent / per-phase model routing** — `opts.model` and `meta.phases[].model` actually select the model (resolved against your authed model registry), with graceful fallback
-- **`/workflows` command** — list, inspect, stop, pause, and remove background runs; runs started with `background: true` are reachable from the command
+- **`/workflows` command** — list, inspect, stop, pause, **resume**, and remove background runs; runs started with `background: true` are reachable from the command
+- **Resume** — each agent result is journaled by a deterministic call index; resuming replays the unchanged prefix from cache (no re-run, no tokens) and runs only new or edited calls live
 - **Safety limits** — 1000-agent cap (`maxAgents`), per-agent timeout (`agentTimeoutMs`), recoverable-vs-fatal error classification
 - **Live progress + token/cost display**, `Esc` to abort
 - **Log persistence** to `.pi/workflows/runs/`
@@ -142,7 +143,6 @@ Scripts run inside a Node `vm` sandbox. Intentionally unavailable: `Date.now()`,
 
 Tracked toward closer parity with Claude Code dynamic workflows:
 
-- **Resume** — journaled results, replay the unchanged prefix, run the rest live
 - **Worktree isolation** for parallel edits, and **bundled `/deep-research`**
 - **Saved workflows** as `/<name>` slash commands
 

@@ -12,7 +12,7 @@ import {
   type RunPersistence,
   type RunStatus,
 } from "./run-persistence.js";
-import { parseWorkflowScript, runWorkflow, type WorkflowRunResult } from "./workflow.js";
+import { type JournalEntry, parseWorkflowScript, runWorkflow, type WorkflowRunResult } from "./workflow.js";
 
 export interface ManagedRun {
   runId: string;
@@ -22,6 +22,11 @@ export interface ManagedRun {
   error?: WorkflowError;
   controller: AbortController;
   startedAt: Date;
+  /** The real script, kept so the run can be resumed. */
+  script: string;
+  args?: unknown;
+  /** Accumulated agent results for resume (deterministic call index -> result). */
+  journal: JournalEntry[];
 }
 
 export interface WorkflowManagerOptions {
@@ -67,6 +72,9 @@ export class WorkflowManager extends EventEmitter {
       },
       controller,
       startedAt: new Date(),
+      script,
+      args,
+      journal: [],
     };
 
     this.runs.set(runId, managed);
@@ -115,19 +123,35 @@ export class WorkflowManager extends EventEmitter {
       },
       controller,
       startedAt: new Date(),
+      script,
+      args,
+      journal: [],
     };
 
     this.runs.set(runId, managed);
     return this.executeRun(managed, script, args);
   }
 
-  private async executeRun(managed: ManagedRun, script: string, args?: unknown): Promise<WorkflowRunResult> {
+  private async executeRun(
+    managed: ManagedRun,
+    script: string,
+    args?: unknown,
+    resumeJournal?: Map<number, JournalEntry>,
+  ): Promise<WorkflowRunResult> {
     try {
       const result = await runWorkflow(script, {
         cwd: this.cwd,
         args,
         signal: managed.controller.signal,
         concurrency: this.concurrency,
+        resumeJournal,
+        resumeFromRunId: resumeJournal ? managed.runId : undefined,
+        onAgentJournal: (entry) => {
+          // Append (crash-safe-ish): keep the latest entry per index, then persist.
+          managed.journal = managed.journal.filter((e) => e.index !== entry.index);
+          managed.journal.push(entry);
+          this.persistRun(managed);
+        },
         onLog: (message) => {
           managed.snapshot.logs.push(message);
           this.emit("log", { runId: managed.runId, message });
@@ -197,7 +221,11 @@ export class WorkflowManager extends EventEmitter {
     this.persistence.save({
       runId: managed.runId,
       workflowName: managed.snapshot.name,
-      script: "", // Don't persist script for security
+      // Persist the real script + journal so the run can be resumed. Runs live
+      // under .pi/workflows/runs/ — protect via directory permissions, not blanking.
+      script: managed.script,
+      args: managed.args,
+      journal: managed.journal,
       status: managed.status,
       phases: managed.snapshot.phases,
       currentPhase: managed.snapshot.currentPhase,
@@ -230,15 +258,42 @@ export class WorkflowManager extends EventEmitter {
   }
 
   /**
-   * Resume a paused workflow.
+   * Resume an interrupted run: replay journaled results for the unchanged prefix
+   * and run the rest live. Returns false if there is nothing resumable.
    */
   async resume(runId: string): Promise<boolean> {
-    const persisted = this.persistence.load(runId);
-    if (persisted?.status !== "paused") return false;
+    const active = this.runs.get(runId);
+    if (active?.status === "running") return false; // already running
 
-    // For now, resume creates a fresh run with completed agents' results cached
-    // Full resume would require re-executing the script with cached results
+    const persisted = this.persistence.load(runId);
+    if (!persisted?.script || persisted.status === "completed") return false;
+
+    const controller = new AbortController();
+    const managed: ManagedRun = {
+      runId,
+      status: "running",
+      snapshot: {
+        name: persisted.workflowName,
+        phases: persisted.phases ?? [],
+        logs: persisted.logs ?? [],
+        agents: [],
+        agentCount: 0,
+        runningCount: 0,
+        doneCount: 0,
+        errorCount: 0,
+      },
+      controller,
+      startedAt: new Date(),
+      script: persisted.script,
+      args: persisted.args,
+      journal: persisted.journal ?? [],
+    };
+    this.runs.set(runId, managed);
+
+    const resumeJournal = new Map((persisted.journal ?? []).map((e) => [e.index, e] as const));
     this.emit("resumed", { runId });
+    // Run in the background; executeRun records status/errors on the managed run.
+    void this.executeRun(managed, persisted.script, persisted.args, resumeJournal).catch(() => {});
     return true;
   }
 

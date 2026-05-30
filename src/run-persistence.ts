@@ -40,6 +40,8 @@ export interface PersistedRunState {
     output: number;
     total: number;
   };
+  /** Cached agent results for resume, keyed by deterministic call index. */
+  journal?: Array<{ index: number; hash: string; result: unknown }>;
 }
 
 export interface RunPersistence {

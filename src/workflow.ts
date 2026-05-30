@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import vm from "node:vm";
 import type { Node } from "acorn";
 import { parse } from "acorn";
@@ -22,6 +23,14 @@ export interface WorkflowMeta {
   phases?: WorkflowMetaPhase[];
 }
 
+/** One cached agent() result, keyed by its deterministic call index. */
+export interface JournalEntry {
+  index: number;
+  /** sha256 of the call's identity (prompt + model + phase + agentType + schema). */
+  hash: string;
+  result: unknown;
+}
+
 export interface WorkflowRunOptions extends WorkflowAgentOptions {
   args?: unknown;
   agent?: Pick<WorkflowAgent, "run">;
@@ -36,6 +45,12 @@ export interface WorkflowRunOptions extends WorkflowAgentOptions {
   persistLogs?: boolean;
   /** Run ID for persistence. Auto-generated if not provided. */
   runId?: string;
+  /** Resume: cached agent results keyed by deterministic call index. */
+  resumeJournal?: Map<number, JournalEntry>;
+  /** Resume: the run being resumed (informational; enables resume mode). */
+  resumeFromRunId?: string;
+  /** Called after each live agent completes so the caller can persist the journal. */
+  onAgentJournal?: (entry: JournalEntry) => void;
   onLog?: (message: string) => void;
   onPhase?: (title: string) => void;
   onAgentStart?: (event: { label: string; phase?: string; prompt: string; model?: string }) => void;
@@ -75,6 +90,8 @@ interface RuntimeState {
   logs: string[];
   phases: string[];
   agentCount: number;
+  /** Monotonic, assigned at lexical agent() call time — the stable resume key. */
+  callSeq: number;
   spent: number;
   tokenUsage: {
     input: number;
@@ -112,6 +129,7 @@ export async function runWorkflow<T = unknown>(
     logs: [],
     phases: [],
     agentCount: 0,
+    callSeq: 0,
     spent: 0,
     tokenUsage: { input: 0, output: 0, total: 0, cost: 0 },
   };
@@ -170,6 +188,22 @@ export async function runWorkflow<T = unknown>(
     // Precedence: explicit agentOptions.model > phase model (meta.phases[].model).
     const modelSpec = agentOptions.model ?? resolveModelForPhase(assignedPhase, routingConfig);
 
+    // Deterministic resume key: assigned at lexical call time, before the limiter,
+    // so parallel()/pipeline() fan-out is reproducible for a fixed script.
+    const callIndex = state.callSeq++;
+    const callHash = hashAgentCall(prompt, modelSpec, assignedPhase, agentOptions);
+
+    // Resume: replay a cached result for an unchanged call (matching hash), without
+    // consuming a concurrency slot, tokens, or a real subagent run.
+    const cached = options.resumeJournal?.get(callIndex);
+    if (cached && cached.hash === callHash) {
+      state.agentCount++;
+      const label = requestedLabel || defaultAgentLabel(assignedPhase, state.agentCount);
+      options.onAgentStart?.({ label, phase: assignedPhase, prompt, model: modelSpec });
+      options.onAgentEnd?.({ label, phase: assignedPhase, result: cached.result, tokens: 0 });
+      return cached.result;
+    }
+
     return limiter(async () => {
       state.agentCount++;
       const label = requestedLabel || defaultAgentLabel(assignedPhase, state.agentCount);
@@ -214,6 +248,7 @@ export async function runWorkflow<T = unknown>(
         throwIfAborted();
 
         const tokens = recordTokens(result);
+        options.onAgentJournal?.({ index: callIndex, hash: callHash, result });
         options.onAgentEnd?.({ label, phase: assignedPhase, result, tokens });
         return result;
       } catch (error) {
@@ -479,6 +514,23 @@ function createLimiter(limit: number) {
 
 function defaultAgentLabel(phase: string | undefined, index: number): string {
   return phase ? `${phase} agent ${index}` : `agent ${index}`;
+}
+
+/** Stable identity hash for an agent() call — a cache miss on resume when anything changes. */
+function hashAgentCall(
+  prompt: string,
+  model: string | undefined,
+  phase: string | undefined,
+  options: AgentOptions,
+): string {
+  const identity = JSON.stringify({
+    prompt,
+    model: model ?? null,
+    phase: phase ?? null,
+    agentType: options.agentType ?? null,
+    schema: options.schema ?? null,
+  });
+  return createHash("sha256").update(identity).digest("hex");
 }
 
 function buildAgentInstructions(phase: string | undefined, options: AgentOptions): string | undefined {
