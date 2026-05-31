@@ -4,6 +4,7 @@ import {
   createWorkflowTool,
   installResultDelivery,
   installTaskPanel,
+  installWorkflowEditor,
   registerAllSavedWorkflows,
   registerBuiltinWorkflows,
   registerWorkflowCommands,
@@ -24,6 +25,10 @@ export default function extension(pi: ExtensionAPI) {
   registerAllSavedWorkflows(pi, cwd, storage);
   // Deliver a background run's result into the conversation when it finishes.
   installResultDelivery(pi, manager);
+  // "Workflows mode": type `workflow(s)` to arm a forced workflow (animated),
+  // Backspace right after the word disarms it. Registers the `input` hook now;
+  // the editor itself is installed once the UI is available (session_start).
+  let editorInstalled = false;
 
   pi.on("session_start", (_event: unknown, ctx: ExtensionContext) => {
     const active = pi.getActiveTools();
@@ -32,5 +37,9 @@ export default function extension(pi: ExtensionAPI) {
     }
     // Live "workflows running" panel below the input (focus + enter to open).
     installTaskPanel(pi, manager, ctx.ui, { storage, cwd });
+    if (!editorInstalled) {
+      installWorkflowEditor(pi, ctx.ui);
+      editorInstalled = true;
+    }
   });
 }

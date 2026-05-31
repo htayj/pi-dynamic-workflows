@@ -58,6 +58,17 @@ export type {
 } from "./workflow.js";
 export { parseWorkflowScript, runWorkflow } from "./workflow.js";
 export { registerWorkflowCommands } from "./workflow-commands.js";
+export {
+  buildForcedWorkflowPrompt,
+  colorizeWorkflow,
+  endsWithTrigger,
+  hasTrigger,
+  installWorkflowEditor,
+  RAINBOW,
+  tokenizeAnsi,
+  WorkflowEditor,
+  type WorkflowModeState,
+} from "./workflow-editor.js";
 export type { ManagedRun, WorkflowManagerOptions } from "./workflow-manager.js";
 export { WorkflowManager } from "./workflow-manager.js";
 export type { SavedWorkflow, WorkflowStorage } from "./workflow-saved.js";

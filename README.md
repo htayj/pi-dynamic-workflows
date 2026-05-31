@@ -26,6 +26,7 @@ Inspired by Anthropic's [dynamic workflows in Claude Code](https://claude.com/bl
 - 🔭 **Bundled `/deep-research`** — fans out **real** web searches, fetches sources, keeps only multi-source-supported claims, and writes a cited report. Plus `/adversarial-review` for skeptic-vetted findings.
 - 🧩 **Saved & nested workflows** — turn any run into a `/<name>` slash command; compose saved workflows from inside other scripts.
 - 🪟 **Background + live task panel** — run workflows in the background, watch a "Workflows running" panel under your input, and get the result delivered back into the chat when it finishes.
+- 🌈 **Workflows mode in the input box** — type `workflow`/`workflows` and the word turns into a flowing rainbow, arming a forced workflow for that message. One Backspace right after the word disarms it (turns plain white) without deleting it.
 
 > **This is a heavily extended fork.** The [upstream project](https://github.com/Michaelliv/pi-dynamic-workflows) shipped the core script runtime; here, every advertised capability is actually **implemented, real-tested against the Pi SDK, and shipped** — see the [comparison](#whats-different-from-upstream) below.
 
@@ -106,6 +107,10 @@ This fork turns the original's roadmap into working, tested features:
 ```
 
 In the **interactive navigator**: `↑/↓` (or `j/k`) select · `enter`/`→` open · `esc`/`←` back · `j/k` scroll detail · `p` pause/resume · `x` stop · `s` save · `q` quit.
+
+### Workflows mode (input box)
+
+As you type, the words `workflow`/`workflows` light up as a **flowing rainbow** — a signal that submitting this message will deliberately run a workflow (the message is rewritten to ask Pi to orchestrate subagents rather than answer directly). Changed your mind? Press **Backspace** once right after the word: it turns plain white (disarmed) without being deleted. Type a fresh trigger word to re-arm. Everything else about the editor — history, autocomplete, paste, multiline — is unchanged.
 
 ## Writing a workflow
 
