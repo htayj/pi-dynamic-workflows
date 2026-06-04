@@ -503,11 +503,135 @@ export async function runWorkflow<T = unknown>(
     }
   };
 
+  // ── Quality-pattern stdlib: reusable, deterministic helpers built purely on
+  // agent()/parallel() (so callSeq ordering stays stable and resume keeps working).
+  // Injected as globals so workflow scripts compose them directly. ──
+
+  const VERIFY_SCHEMA = {
+    type: "object",
+    properties: { real: { type: "boolean" }, reason: { type: "string" } },
+    required: ["real"],
+  };
+  const verify = async (
+    item: unknown,
+    opts: { reviewers?: number; threshold?: number; lens?: string | string[] } = {},
+  ) => {
+    const reviewers = Math.max(1, opts.reviewers ?? 2);
+    const threshold = opts.threshold ?? 0.5;
+    const lenses = opts.lens ? (Array.isArray(opts.lens) ? opts.lens : [opts.lens]) : [];
+    const claim = typeof item === "string" ? item : JSON.stringify(item);
+    const votes = (
+      await parallel(
+        Array.from(
+          { length: reviewers },
+          (_v, i) => () =>
+            agent(
+              `Adversarially review whether the following is REAL/correct. Try to refute it; default to real=false if unsure.${lenses.length ? ` Focus lens: ${lenses[i % lenses.length]}.` : ""}\n\n${claim}`,
+              { label: `verify ${i + 1}`, schema: VERIFY_SCHEMA },
+            ),
+        ),
+      )
+    ).filter(Boolean) as Array<{ real?: boolean; reason?: string }>;
+    const realCount = votes.filter((v) => v?.real).length;
+    return { real: votes.length > 0 && realCount / votes.length >= threshold, realCount, total: votes.length, votes };
+  };
+
+  const JUDGE_SCHEMA = {
+    type: "object",
+    properties: { score: { type: "number" }, reason: { type: "string" } },
+    required: ["score"],
+  };
+  const judgePanel = async (attempts: unknown[], opts: { judges?: number; rubric?: string } = {}) => {
+    const judges = Math.max(1, opts.judges ?? 3);
+    const rubric = opts.rubric ?? "overall quality and correctness";
+    const scored = (
+      await parallel(
+        (Array.isArray(attempts) ? attempts : []).map((att, idx) => async () => {
+          const text = typeof att === "string" ? att : JSON.stringify(att);
+          const js = (
+            await parallel(
+              Array.from(
+                { length: judges },
+                (_v, j) => () =>
+                  agent(
+                    `Score this candidate from 0 to 1 on: ${rubric}. Reply with the score.\n\nCandidate:\n${text}`,
+                    {
+                      label: `judge ${idx + 1}.${j + 1}`,
+                      schema: JUDGE_SCHEMA,
+                    },
+                  ),
+              ),
+            )
+          ).filter(Boolean) as Array<{ score?: number }>;
+          const score = js.length ? js.reduce((s, v) => s + (Number(v?.score) || 0), 0) / js.length : 0;
+          return { index: idx, attempt: att, score, judgments: js };
+        }),
+      )
+    ).filter(Boolean) as Array<{ index: number; attempt: unknown; score: number; judgments: unknown[] }>;
+    // Highest mean score; stable tie-break by input index.
+    let best = scored[0];
+    for (const s of scored) if (s.score > best.score || (s.score === best.score && s.index < best.index)) best = s;
+    return best;
+  };
+
+  const loopUntilDry = async (opts: {
+    round: (roundIndex: number) => Promise<unknown[]> | unknown[];
+    key?: (item: unknown) => string;
+    consecutiveEmpty?: number;
+    maxRounds?: number;
+  }) => {
+    if (!opts || typeof opts.round !== "function")
+      throw new TypeError("loopUntilDry requires { round: (i) => items[] }");
+    const key = opts.key ?? ((x: unknown) => JSON.stringify(x));
+    const consecutiveEmpty = Math.max(1, opts.consecutiveEmpty ?? 2);
+    const maxRounds = opts.maxRounds ?? 50;
+    const seen = new Set<string>();
+    const all: unknown[] = [];
+    let dry = 0;
+    for (let r = 0; r < maxRounds && dry < consecutiveEmpty; r++) {
+      let items: unknown[];
+      try {
+        items = (await opts.round(r)) ?? [];
+      } catch (error) {
+        // Budget / agent-limit exhaustion: return the partial result, don't abort.
+        const code = (error as { code?: string })?.code;
+        if (code === WorkflowErrorCode.TOKEN_BUDGET_EXHAUSTED || code === WorkflowErrorCode.AGENT_LIMIT_EXCEEDED) break;
+        throw error;
+      }
+      const fresh = (Array.isArray(items) ? items : []).filter((x) => x != null && !seen.has(key(x)));
+      if (!fresh.length) {
+        dry++;
+        continue;
+      }
+      dry = 0;
+      for (const x of fresh) {
+        seen.add(key(x));
+        all.push(x);
+      }
+    }
+    return all;
+  };
+
+  const COMPLETENESS_SCHEMA = {
+    type: "object",
+    properties: { complete: { type: "boolean" }, missing: { type: "array", items: { type: "string" } } },
+    required: ["complete"],
+  };
+  const completenessCheck = (taskArgs: unknown, results: unknown) =>
+    agent(
+      `Given the task and the results gathered so far, list what is still MISSING (modalities not covered, claims unverified, gaps). Be specific and concise.\n\nTask:\n${JSON.stringify(taskArgs)}\n\nResults so far:\n${JSON.stringify(results).slice(0, 4000)}`,
+      { label: "completeness critic", schema: COMPLETENESS_SCHEMA },
+    );
+
   const context = vm.createContext({
     agent,
     parallel,
     pipeline,
     workflow: workflowFn,
+    verify,
+    judgePanel,
+    loopUntilDry,
+    completenessCheck,
     log,
     phase,
     args: options.args,
