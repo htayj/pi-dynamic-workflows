@@ -652,6 +652,7 @@ export function openWorkflowNavigator(
       };
       return component;
     },
-    { overlay: true },
+    // A roomy overlay: ~94% of the terminal so the navigator gets real width/height.
+    { overlay: true, overlayOptions: { width: "94%", maxHeight: "92%", anchor: "center" } },
   );
 }

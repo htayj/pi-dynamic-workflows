@@ -27,6 +27,9 @@ export interface PersistedRunState {
   workflowName: string;
   script: string;
   args?: unknown;
+  /** The pi session this run belongs to. Runs persist on disk across sessions but
+   * the navigator shows only the current session's runs (undefined = legacy/global). */
+  sessionId?: string;
   status: RunStatus;
   phases: string[];
   currentPhase?: string;

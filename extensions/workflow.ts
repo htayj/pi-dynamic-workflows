@@ -38,6 +38,14 @@ export default function extension(pi: ExtensionAPI) {
     // Tell the manager the session's main model so "explore" agents auto-tier
     // down to a lighter same-family sibling (e.g. Claude → Haiku).
     manager.setMainModel(ctx.model ? `${ctx.model.provider}/${ctx.model.id}` : undefined);
+    // Scope the /workflows history to this session: runs persist on disk across
+    // sessions, but the navigator/task panel show only the current session's runs.
+    // Switching back to a previous session re-shows that session's runs.
+    try {
+      manager.setSessionId(ctx.sessionManager?.getSessionId());
+    } catch {
+      // sessionManager may be unavailable in some contexts — fall back to global history.
+    }
     // Deliver a background run's result into the conversation when it finishes.
     installResultDelivery(pi, manager);
     // Live "workflows running" panel below the input (focus + enter to open).

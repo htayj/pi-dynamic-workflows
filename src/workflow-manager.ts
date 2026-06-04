@@ -62,6 +62,8 @@ export interface WorkflowManagerOptions {
   agent?: Pick<WorkflowAgent, "run">;
   /** The session's main model (provider/id), for auto-tiering explore agents. */
   mainModel?: string;
+  /** The pi session id to tag runs with (see setSessionId). */
+  sessionId?: string;
 }
 
 export class WorkflowManager extends EventEmitter {
@@ -73,6 +75,8 @@ export class WorkflowManager extends EventEmitter {
   private agent?: Pick<WorkflowAgent, "run">;
   /** The session's main model (provider/id), for auto-tiering explore agents. */
   private mainModel?: string;
+  /** The current pi session id; runs are stamped with it and listRuns() filters by it. */
+  private sessionId?: string;
 
   constructor(options: WorkflowManagerOptions = {}) {
     super();
@@ -81,8 +85,15 @@ export class WorkflowManager extends EventEmitter {
     this.loadSavedWorkflow = options.loadSavedWorkflow;
     this.agent = options.agent;
     this.mainModel = options.mainModel;
+    this.sessionId = options.sessionId;
     this.persistence = createRunPersistence(this.cwd);
     this.recoverStaleRuns();
+  }
+
+  /** Bind the manager to the current pi session, so new runs are tagged with it and
+   * the navigator/task-panel show only this session's runs (set on session_start). */
+  setSessionId(id: string | undefined): void {
+    this.sessionId = id;
   }
 
   /**
@@ -93,7 +104,7 @@ export class WorkflowManager extends EventEmitter {
    */
   private recoverStaleRuns(): void {
     try {
-      for (const p of this.persistence.list()) {
+      for (const p of this.listAllRuns()) {
         if (p.status === "running" && !this.runs.has(p.runId)) {
           this.persistence.save({ ...p, status: "paused" });
         }
@@ -151,6 +162,7 @@ export class WorkflowManager extends EventEmitter {
       workflowName: parsed.meta.name,
       script,
       args,
+      sessionId: this.sessionId,
       status: "running",
       phases: managed.snapshot.phases,
       agents: [],
@@ -334,6 +346,7 @@ export class WorkflowManager extends EventEmitter {
         // under .pi/workflows/runs/ — protect via directory permissions, not blanking.
         script: managed.script,
         args: managed.args,
+        sessionId: this.sessionId,
         journal: managed.journal,
         status: managed.status,
         phases: managed.snapshot.phases,
@@ -450,7 +463,18 @@ export class WorkflowManager extends EventEmitter {
   /**
    * List all runs (active + persisted).
    */
+  /**
+   * Runs for the navigator/task panel. Once bound to a session (setSessionId), only
+   * that session's runs are returned — runs from other sessions stay on disk and
+   * reappear when you switch back. Unbound (tests/legacy) returns everything.
+   */
   listRuns(): PersistedRunState[] {
+    const all = this.persistence.list();
+    return this.sessionId ? all.filter((r) => r.sessionId === this.sessionId) : all;
+  }
+
+  /** All persisted runs regardless of session (used by cross-session recovery). */
+  listAllRuns(): PersistedRunState[] {
     return this.persistence.list();
   }
 

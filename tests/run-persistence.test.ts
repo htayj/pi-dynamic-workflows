@@ -539,3 +539,49 @@ test(
     assert.equal(rp.load("stale")?.status, "paused", "stale running -> paused (journal preserved for resume)");
   }),
 );
+
+test(
+  "WorkflowManager.listRuns is scoped to the bound session and switches with setSessionId",
+  withTempCwd(async (cwd) => {
+    const rp = createRunPersistence(cwd);
+    const run = (runId: string, sessionId: string): PersistedRunState =>
+      ({
+        runId,
+        workflowName: "w",
+        status: "completed",
+        sessionId,
+        phases: [],
+        agents: [],
+        logs: [],
+      }) as PersistedRunState;
+    rp.save(run("a", "s1"));
+    rp.save(run("b", "s2"));
+
+    const m = new WorkflowManager({ cwd, sessionId: "s1" });
+    assert.deepEqual(
+      m.listRuns().map((r) => r.runId),
+      ["a"],
+      "only the bound session's runs are listed",
+    );
+
+    m.setSessionId("s2");
+    assert.deepEqual(
+      m.listRuns().map((r) => r.runId),
+      ["b"],
+      "switching sessions re-shows that session's runs",
+    );
+
+    m.setSessionId(undefined);
+    assert.deepEqual(
+      m
+        .listRuns()
+        .map((r) => r.runId)
+        .sort(),
+      ["a", "b"],
+      "unbound lists all runs (legacy/global)",
+    );
+
+    // listAllRuns ignores the session binding.
+    assert.equal(new WorkflowManager({ cwd, sessionId: "s1" }).listAllRuns().length, 2);
+  }),
+);
