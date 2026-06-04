@@ -3,186 +3,410 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>pi-dynamic-workflows - Production-ready dynamic workflows and subagents for Pi</title>
-  <meta name="description" content="Production-ready dynamic workflows for Pi: subagents, real model routing, journaled resume, git worktree isolation, background runs, live task panel, token and cost accounting, and deep research.">
+  <title>pi-dynamic-workflows — Claude Code–style subagents for Pi</title>
+  <meta name="description" content="Turn one prompt into a fleet of subagents. Claude Code–style dynamic workflows for Pi: code-mode orchestration, model routing, journaled resume, and worktree isolation.">
   <meta name="robots" content="index, follow">
+  <meta name="theme-color" content="#0f766e">
   <link rel="canonical" href="https://quintinshaw.github.io/pi-dynamic-workflows/">
-  <meta property="og:title" content="pi-dynamic-workflows">
-  <meta property="og:description" content="Production-ready dynamic workflows and subagents for Pi.">
+  <link rel="preconnect" href="https://raw.githubusercontent.com" crossorigin>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230f766e'/%3E%3Ctext x='32' y='46' font-size='40' text-anchor='middle' fill='white' font-family='monospace'%3E%CF%80%3C/text%3E%3C/svg%3E">
+
+  <!-- Open Graph / Twitter -->
+  <meta property="og:title" content="pi-dynamic-workflows — Claude Code–style dynamic workflows for Pi">
+  <meta property="og:description" content="One prompt fans out into a fleet of subagents that cross-check each other and hand back a synthesized answer. Model routing, resume, worktree isolation, cost accounting, ultracode, deep research.">
   <meta property="og:url" content="https://quintinshaw.github.io/pi-dynamic-workflows/">
   <meta property="og:type" content="website">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:site_name" content="pi-dynamic-workflows">
+  <meta property="og:locale" content="en_US">
+  <meta property="og:image" content="https://quintinshaw.github.io/pi-dynamic-workflows/workflows-mode.jpg">
+  <meta property="og:image:width" content="1888">
+  <meta property="og:image:height" content="1610">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:alt" content="pi-dynamic-workflows fanning a task across subagents in Pi">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="pi-dynamic-workflows — dynamic workflows for Pi">
+  <meta name="twitter:description" content="Claude Code–style dynamic workflows for Pi: code-mode subagents, model routing, resume, worktree isolation, cost accounting, ultracode, deep research.">
+  <meta name="twitter:image" content="https://quintinshaw.github.io/pi-dynamic-workflows/workflows-mode.jpg">
+  <meta name="twitter:image:alt" content="pi-dynamic-workflows fanning a task across subagents in Pi">
+
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "SoftwareApplication",
+        "name": "pi-dynamic-workflows",
+        "description": "Claude Code–style dynamic workflows for Pi: code-mode subagents with real model routing, journaled resume, git-worktree isolation, cost accounting, ultracode, and deep research.",
+        "applicationCategory": "DeveloperApplication",
+        "operatingSystem": "macOS, Linux, Windows",
+        "softwareVersion": "2.0.0",
+        "url": "https://quintinshaw.github.io/pi-dynamic-workflows/",
+        "downloadUrl": "https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows",
+        "license": "https://opensource.org/licenses/MIT",
+        "author": { "@type": "Person", "name": "QuintinShaw" },
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" }
+      },
+      {
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is pi-dynamic-workflows?",
+            "acceptedAnswer": { "@type": "Answer", "text": "A Pi extension that brings Claude Code–style dynamic workflows to Pi. Instead of one model working step by step, Pi writes a JavaScript orchestration script that fans a task out across many isolated subagents in parallel, holds the intermediate work in script variables, and returns only the synthesized result." }
+          },
+          {
+            "@type": "Question",
+            "name": "Does it work with any model?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. It runs on whatever providers and models Pi is authenticated for, and routes each subagent to a small, medium, or big tier (or an exact model) so cheap work goes to a light model and hard synthesis to a big one." }
+          },
+          {
+            "@type": "Question",
+            "name": "What is ultracode?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Ultracode is a standing opt-in: type /ultracode and every substantive message auto-arms an exhaustive multi-agent workflow, the way Claude Code's ultracode does. /effort high is the lighter tier, and /ultracode off turns it back off." }
+          },
+          {
+            "@type": "Question",
+            "name": "Can an interrupted run resume?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Runs are journaled. A resumed run replays the completed, unchanged agents from the journal (no re-run, no tokens) and only runs what is left or what you changed. The journal survives restarts." }
+          },
+          {
+            "@type": "Question",
+            "name": "How is it different from running subagents by hand?",
+            "acceptedAnswer": { "@type": "Answer", "text": "The orchestration is code, not chat: fan-out, ordering, and synthesis live in a deterministic script, intermediate results stay out of your context window, and the whole run is journaled so it can resume, show real cost, and be saved as a reusable command." }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I install it?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Run 'pi install npm:@quintinshaw/pi-dynamic-workflows' and then /reload in Pi. You get the workflow tool plus the /workflows, /ultracode, /deep-research, and /adversarial-review commands." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
+
   <style>
     :root {
       color-scheme: light dark;
       --bg: #f7f4ef;
       --text: #171512;
       --muted: #5f5a52;
-      --line: #d8d0c4;
+      --line: #ddd5c9;
       --accent: #0f766e;
+      --accent-text: #ffffff;
       --panel: #fffaf2;
-      --code: #102a2b;
+      --code-bg: #0f1f1f;
+      --code-text: #d7fff7;
+      --chip: #ece5d8;
     }
-
     @media (prefers-color-scheme: dark) {
       :root {
-        --bg: #111315;
+        --bg: #0f1113;
         --text: #f3eee7;
-        --muted: #b8b1a8;
-        --line: #32363a;
+        --muted: #b3aca3;
+        --line: #2b2f33;
         --accent: #2dd4bf;
-        --panel: #181b1e;
-        --code: #ddfff9;
+        --accent-text: #06231f;
+        --panel: #16191c;
+        --code-bg: #0b1414;
+        --code-text: #d7fff7;
+        --chip: #1d2226;
       }
     }
-
-    * {
-      box-sizing: border-box;
-    }
-
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
     body {
       margin: 0;
       background: var(--bg);
       color: var(--text);
-      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-      line-height: 1.55;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
     }
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    .wrap { width: min(960px, calc(100% - 40px)); margin: 0 auto; }
+    code, pre, kbd { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 
-    main {
-      width: min(920px, calc(100% - 32px));
-      margin: 0 auto;
-      padding: 72px 0 56px;
-    }
+    header.nav { position: sticky; top: 0; z-index: 10; backdrop-filter: blur(8px);
+      background: color-mix(in srgb, var(--bg) 86%, transparent); border-bottom: 1px solid var(--line); }
+    .nav-inner { display: flex; align-items: center; gap: 18px; height: 56px; }
+    .brand { font-weight: 700; letter-spacing: -0.02em; }
+    .nav-links { margin-left: auto; display: flex; gap: 18px; flex-wrap: wrap; }
+    .nav-links a { color: var(--muted); font-size: 0.93rem; }
+    .nav-links a:hover { color: var(--text); text-decoration: none; }
+    @media (max-width: 620px) { .nav-links a.hide-sm { display: none; } }
 
-    h1 {
-      margin: 0;
-      font-size: clamp(2.35rem, 7vw, 4.9rem);
-      line-height: 0.98;
-      letter-spacing: 0;
-    }
+    .hero { padding: 76px 0 28px; }
+    .eyebrow { color: var(--accent); font-weight: 650; font-size: 0.86rem; letter-spacing: 0.04em; text-transform: uppercase; }
+    h1 { margin: 12px 0 0; font-size: clamp(2.2rem, 6vw, 4rem); line-height: 1.03; letter-spacing: -0.03em; }
+    .lede { font-size: clamp(1.05rem, 2.4vw, 1.28rem); color: var(--muted); margin: 18px 0 0; max-width: 52ch; }
+    .trust { color: var(--muted); font-size: 0.86rem; margin: 16px 0 0; }
+    .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 24px; }
+    .btn { display: inline-flex; align-items: center; gap: 8px; padding: 11px 18px; border-radius: 10px;
+      border: 1px solid var(--line); font-weight: 600; font-size: 0.95rem; }
+    .btn.primary { background: var(--accent); color: var(--accent-text); border-color: var(--accent); }
+    .btn.primary:hover { text-decoration: none; opacity: 0.92; }
+    .btn.ghost:hover { text-decoration: none; border-color: var(--accent); }
+    .also { color: var(--muted); font-size: 0.9rem; margin: 12px 0 0; }
 
-    .lead {
-      max-width: 760px;
-      margin: 24px 0 0;
-      color: var(--muted);
-      font-size: 1.2rem;
-    }
+    .install { display: flex; align-items: stretch; gap: 0; margin-top: 22px; max-width: 560px;
+      border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--code-bg); }
+    .install code { flex: 1; padding: 13px 16px; color: var(--code-text); font-size: 0.92rem; overflow-x: auto; white-space: nowrap; }
+    .install button { border: 0; border-left: 1px solid rgba(255,255,255,0.12); background: transparent;
+      color: var(--code-text); padding: 0 16px; cursor: pointer; font-size: 0.85rem; }
+    .install button:hover { background: rgba(255,255,255,0.07); }
 
-    .install {
-      margin: 32px 0 0;
-      padding: 18px 20px;
-      overflow-x: auto;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-      color: var(--code);
-      font: 600 1rem ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-    }
+    section { padding: 44px 0; border-top: 1px solid var(--line); }
+    h2 { font-size: clamp(1.5rem, 3.4vw, 2.05rem); letter-spacing: -0.02em; margin: 0 0 6px; }
+    section > .wrap > p.sub { color: var(--muted); margin: 0 0 22px; max-width: 64ch; }
 
-    .links {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      margin: 28px 0 0;
-      padding: 0;
-      list-style: none;
-    }
+    figure { margin: 0; }
+    .shot { width: 100%; border: 1px solid var(--line); border-radius: 12px; display: block; background: var(--panel); }
+    figcaption { color: var(--muted); font-size: 0.88rem; margin-top: 10px; }
 
-    .links a {
-      display: inline-flex;
-      align-items: center;
-      min-height: 42px;
-      padding: 9px 14px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      color: var(--text);
-      text-decoration: none;
-      background: color-mix(in srgb, var(--panel) 82%, transparent);
-    }
+    ol.steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 16px; }
+    ol.steps li { position: relative; padding-left: 44px; }
+    ol.steps li::before { counter-increment: s; content: counter(s); position: absolute; left: 0; top: -2px;
+      width: 30px; height: 30px; border-radius: 50%; background: var(--chip); color: var(--text);
+      display: grid; place-items: center; font-weight: 700; font-size: 0.9rem; }
 
-    .links a:hover {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
+    pre.code { background: var(--code-bg); color: var(--code-text); padding: 18px; border-radius: 12px;
+      overflow-x: auto; font-size: 0.88rem; line-height: 1.6; border: 1px solid var(--line); }
 
-    section {
-      margin-top: 48px;
-      padding-top: 30px;
-      border-top: 1px solid var(--line);
-    }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(248px, 1fr)); gap: 16px; }
+    .card { border: 1px solid var(--line); background: var(--panel); border-radius: 12px; padding: 18px; }
+    .card h3 { margin: 0 0 6px; font-size: 1.02rem; }
+    .card p { margin: 0; color: var(--muted); font-size: 0.93rem; }
 
-    h2 {
-      margin: 0 0 16px;
-      font-size: 1.35rem;
-    }
+    .tbl { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    .tbl th, .tbl td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    .tbl th { color: var(--muted); font-weight: 600; }
+    .tbl code { background: var(--chip); padding: 1px 6px; border-radius: 6px; font-size: 0.86rem; }
+    .scroll-x { overflow-x: auto; }
 
-    ul.features {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-      gap: 12px;
-      margin: 0;
-      padding: 0;
-      list-style: none;
-    }
+    dl.cmds { display: grid; grid-template-columns: max-content 1fr; gap: 8px 20px; margin: 0; }
+    dl.cmds dt { font-family: ui-monospace, monospace; color: var(--accent); white-space: nowrap; }
+    dl.cmds dd { margin: 0; color: var(--muted); }
+    @media (max-width: 620px) { dl.cmds { grid-template-columns: 1fr; gap: 2px 0; } dl.cmds dd { margin-bottom: 10px; } }
 
-    .features li {
-      padding: 14px 16px;
-      border: 1px solid var(--line);
-      border-radius: 8px;
-      background: var(--panel);
-    }
+    .callout { border: 1px solid var(--accent); border-radius: 12px; padding: 20px; background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
+    .callout h2 { margin-top: 0; }
 
-    footer {
-      margin-top: 52px;
-      color: var(--muted);
-      font-size: 0.95rem;
-    }
+    details { border-bottom: 1px solid var(--line); padding: 14px 0; }
+    details summary { cursor: pointer; font-weight: 600; list-style: none; }
+    details summary::-webkit-details-marker { display: none; }
+    details summary::after { content: "+"; float: right; color: var(--muted); }
+    details[open] summary::after { content: "\2013"; }
+    details p { color: var(--muted); margin: 10px 0 0; }
+
+    footer { border-top: 1px solid var(--line); padding: 32px 0 56px; color: var(--muted); font-size: 0.9rem; }
+    footer a { color: var(--muted); }
+    footer .row { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 12px; }
+    .pill { display: inline-block; font-size: 0.78rem; color: var(--muted); border: 1px solid var(--line);
+      border-radius: 999px; padding: 2px 10px; }
   </style>
-  <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "SoftwareSourceCode",
-      "name": "pi-dynamic-workflows",
-      "description": "Production-ready dynamic workflows and subagents for Pi.",
-      "codeRepository": "https://github.com/QuintinShaw/pi-dynamic-workflows",
-      "programmingLanguage": "TypeScript",
-      "runtimePlatform": "Pi",
-      "license": "https://opensource.org/licenses/MIT",
-      "url": "https://quintinshaw.github.io/pi-dynamic-workflows/",
-      "installUrl": "https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows"
-    }
-  </script>
 </head>
 <body>
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <span class="brand">pi-dynamic-workflows</span>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#quickstart">Quickstart</a>
+        <a href="#features" class="hide-sm">Features</a>
+        <a href="#ultracode">Ultracode</a>
+        <a href="#commands" class="hide-sm">Commands</a>
+        <a href="#faq" class="hide-sm">FAQ</a>
+        <a href="https://github.com/QuintinShaw/pi-dynamic-workflows">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
   <main>
-    <h1>pi-dynamic-workflows</h1>
-    <p class="lead">
-      Production-ready dynamic workflows and subagents for Pi. Write JavaScript orchestration code that fans work out across agents, resumes from a journal, isolates edits in git worktrees, and reports real token and cost usage.
-    </p>
+    <div class="hero">
+      <div class="wrap">
+        <p class="eyebrow">Claude Code–style dynamic workflows for Pi</p>
+        <h1>Turn one prompt into a&nbsp;fleet of subagents.</h1>
+        <p class="lede">A Pi extension that writes a JavaScript orchestration script on the fly, fans your task across many isolated subagents in parallel, has them cross-check each other, and hands back one synthesized answer.</p>
 
-    <pre class="install">pi install npm:@quintinshaw/pi-dynamic-workflows</pre>
+        <div class="install" role="group" aria-label="Install command">
+          <code id="install">pi install npm:@quintinshaw/pi-dynamic-workflows</code>
+          <button type="button" data-copy="#install" aria-label="Copy install command">Copy</button>
+        </div>
+        <p class="trust">Journaled resume · real per-agent cost accounting · git-worktree isolation</p>
 
-    <ul class="links" aria-label="Project links">
-      <li><a href="https://github.com/QuintinShaw/pi-dynamic-workflows">GitHub repository</a></li>
-      <li><a href="https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows">npm package</a></li>
-      <li><a href="https://pi.dev/packages/%40quintinshaw/pi-dynamic-workflows">Pi package page</a></li>
-    </ul>
+        <div class="cta">
+          <a class="btn primary" href="#quickstart">Get started</a>
+          <a class="btn ghost" href="https://github.com/QuintinShaw/pi-dynamic-workflows">Star on GitHub</a>
+          <span class="pill">v2.0.0 · MIT</span>
+        </div>
+        <p class="also">Also on <a href="https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows">npm</a> · <a href="https://pi.dev/packages/@quintinshaw/pi-dynamic-workflows">Pi package</a></p>
+      </div>
+    </div>
 
-    <section>
-      <h2>Built for real agent workflows</h2>
-      <ul class="features">
-        <li>Real per-agent and per-phase model routing.</li>
-        <li>Journaled resume for interrupted workflow runs.</li>
-        <li>Git worktree isolation for parallel code edits.</li>
-        <li>Background runs with a live task panel.</li>
-        <li>Real token and cost accounting from agent sessions.</li>
-        <li>Bundled deep research and adversarial review commands.</li>
-      </ul>
+    <section id="see">
+      <div class="wrap">
+        <figure>
+          <img class="shot" loading="lazy" decoding="async"
+               src="https://raw.githubusercontent.com/QuintinShaw/pi-dynamic-workflows/main/docs/media/demo.gif"
+               alt="A workflow fanning a task out across subagents in Pi and streaming live progress">
+          <figcaption>Plain-language ask → generated workflow → live, streaming fan-out across subagents, all in the background.</figcaption>
+        </figure>
+      </div>
     </section>
 
-    <footer>
-      Open-source extension for Pi dynamic workflows, subagents, workflow orchestration, and multi-agent coding.
-    </footer>
+    <section id="quickstart">
+      <div class="wrap">
+        <h2>Quickstart</h2>
+        <p class="sub">Three steps from install to your first fan-out.</p>
+        <ol class="steps">
+          <li>
+            <strong>Install &amp; reload.</strong>
+            <pre class="code">pi install npm:@quintinshaw/pi-dynamic-workflows
+# then in Pi:
+/reload</pre>
+          </li>
+          <li>
+            <strong>Ask for a workflow in plain language.</strong> Pi writes the script and runs it in the background; a live panel tracks progress.
+            <pre class="code">Run a workflow to audit every route under src/routes/ for missing auth checks.</pre>
+          </li>
+          <li>
+            <strong>Or write one yourself.</strong> A workflow is plain JavaScript — orchestrate subagents with <code>agent()</code>, <code>parallel()</code>, <code>phase()</code>:
+            <pre class="code">export const meta = {
+  name: 'auth_audit',
+  description: 'Find routes missing auth checks and verify the findings',
+  phases: [{ title: 'Scan' }, { title: 'Review' }, { title: 'Verify' }],
+}
+
+phase('Scan')
+const files = await agent('List every route file under src/routes/.', { tier: 'small' })
+
+phase('Review')
+const findings = await parallel(
+  files.split('\n').filter(Boolean).map((file) =>
+    () => agent(`Audit ${file} for missing auth checks.`, { tier: 'medium', isolation: 'worktree' }),
+  ),
+)
+
+phase('Verify')
+return await agent('Synthesize and double-check:\n' + findings.join('\n\n'), { tier: 'big' })</pre>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section id="features">
+      <div class="wrap">
+        <h2>What you get</h2>
+        <p class="sub">Code-mode subagents — plus the parts a real run needs: journaled resume, git-worktree isolation, real cost accounting, and per-agent model routing.</p>
+        <div class="grid">
+          <div class="card"><h3>Fan-out orchestration</h3><p><code>agent()</code>, <code>parallel()</code>, <code>pipeline()</code>, <code>phase()</code> in a sandboxed script. Up to 16 concurrent / 1000 total subagents; results stay in variables, not the chat.</p></div>
+          <div class="card"><h3>Real model routing</h3><p><code>small</code> / <code>medium</code> / <code>big</code> tiers (or an exact model) per agent. It actually switches the subagent's model — cheap work light, hard synthesis big.</p></div>
+          <div class="card"><h3>Journaled resume</h3><p>An interrupted run replays finished agents from a journal (no re-run, no tokens) and runs only what's left or what you changed. Survives restarts.</p></div>
+          <div class="card"><h3>Git worktree isolation</h3><p><code>isolation: "worktree"</code> gives an agent its own branch, so parallel agents edit the same files without clobbering each other.</p></div>
+          <div class="card"><h3>Real cost accounting</h3><p>Token and dollar cost read from each subagent's session, not estimated. <code>budget</code> gates on the real total; <code>/workflows</code> shows the spend.</p></div>
+          <div class="card"><h3>Background by default</h3><p>The turn ends immediately; a live task panel tracks each run and the result auto-continues the conversation when it lands.</p></div>
+          <div class="card"><h3>Interactive /workflows TUI</h3><p>Drill runs → phases → agents → detail. Pause, stop, restart, and save runs from the keyboard; each agent shows the model it ran on.</p></div>
+          <div class="card"><h3>Quality-pattern stdlib</h3><p>Built-in <code>verify()</code>, <code>judgePanel()</code>, <code>loopUntilDry()</code>, and <code>completenessCheck()</code> for adversarial review, best-of-N, and exhaustive discovery.</p></div>
+          <div class="card"><h3>Ultracode</h3><p><code>/ultracode</code> is a standing opt-in that auto-arms an exhaustive workflow for every substantive message.</p></div>
+          <div class="card"><h3>Deep research, built in</h3><p><code>/deep-research</code> and <code>/adversarial-review</code>: real web search, source cross-checking, skeptic-vetted findings, and cited reports.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="ultracode">
+      <div class="wrap callout">
+        <h2>Ultracode</h2>
+        <p class="sub">A standing, maximal-effort opt-in: turn it on once and every substantive message fans out.</p>
+        <p>Each message you send auto-arms an <strong>exhaustive multi-agent workflow</strong>: wide fan-out, more reviewers and judges, deeper discovery loops, a completeness check at the end, and big-tier synthesis. No need to type "workflow" each time.</p>
+        <pre class="code">/ultracode          # on — auto-arm an exhaustive workflow for every substantive message
+/ultracode off      # back to normal
+/effort high|ultra  # finer control (high = thorough, ultra = ultracode)</pre>
+        <p>Each tier maps to real, runtime-enforced ceilings — token budget and agent caps — plus guidance that widens fan-out, so a higher tier actually does more work.</p>
+      </div>
+    </section>
+
+    <section id="commands">
+      <div class="wrap">
+        <h2>Commands</h2>
+        <p class="sub">Installed alongside the <code>workflow</code> tool after <code>/reload</code>.</p>
+        <dl class="cmds">
+          <dt>/workflows</dt><dd>Open the interactive navigator (plain list in print mode).</dd>
+          <dt>/workflows status &lt;id&gt;</dt><dd>Watch a run live; print its result when it finishes.</dd>
+          <dt>/workflows save &lt;name&gt;</dt><dd>Save the latest run's script as a reusable <code>/&lt;name&gt;</code> command.</dd>
+          <dt>/workflows pause|resume|stop|rm &lt;id&gt;</dt><dd>Manage a run.</dd>
+          <dt>/workflows-models</dt><dd>Map the small / medium / big tiers to real models.</dd>
+          <dt>/ultracode [off]</dt><dd>Ultracode: auto-arm an exhaustive workflow for every substantive message.</dd>
+          <dt>/effort off|high|ultra</dt><dd>Finer control over the standing opt-in.</dd>
+          <dt>/deep-research &lt;question&gt;</dt><dd>Web-researched, source-cross-checked report.</dd>
+          <dt>/adversarial-review &lt;task&gt;</dt><dd>Findings vetted by skeptical reviewers.</dd>
+        </dl>
+      </div>
+    </section>
+
+    <section id="mapping">
+      <div class="wrap">
+        <h2>How it maps to Claude Code dynamic workflows</h2>
+        <p class="sub">The same model — on Pi, with any provider you're authenticated for.</p>
+        <div class="scroll-x">
+          <table class="tbl">
+            <thead><tr><th>Claude Code dynamic workflows</th><th>pi-dynamic-workflows (on Pi)</th></tr></thead>
+            <tbody>
+              <tr><td>Code-mode orchestration — the model writes a script that drives subagents</td><td>A JS <code>workflow</code> tool running <code>agent()</code> / <code>parallel()</code> / <code>pipeline()</code> / <code>phase()</code> in a vm sandbox</td></tr>
+              <tr><td>Subagents with isolated context</td><td>Fresh in-memory Pi sessions; results held in script variables, not the chat</td></tr>
+              <tr><td>Structured outputs</td><td>JSON-Schema <code>schema</code> → a validated object, with bounded repair if the model misses</td></tr>
+              <tr><td>Background runs</td><td>Non-blocking by default, a live task panel, and auto-continue delivery</td></tr>
+              <tr><td>Resume</td><td><strong>Journaled + replayable</strong> — survives restarts and replays the unchanged prefix</td></tr>
+              <tr><td>Ultracode</td><td><code>/ultracode</code> (or <code>/effort ultra</code>) — auto-arms an exhaustive workflow per substantive message</td></tr>
+              <tr><td>Model selection</td><td><strong>Per-agent / per-phase routing</strong> across any provider Pi can reach</td></tr>
+              <tr><td>—</td><td><strong>Git worktree isolation</strong>, <strong>real cost accounting</strong>, <strong>/deep-research</strong>, and a <strong>quality-pattern stdlib</strong></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="faq">
+      <div class="wrap">
+        <h2>FAQ</h2>
+        <details><summary>What is pi-dynamic-workflows?</summary><p>A Pi extension that brings Claude Code–style dynamic workflows to Pi. Instead of one model working step by step, Pi writes a JavaScript orchestration script that fans a task out across many isolated subagents in parallel, holds the intermediate work in script variables, and returns only the synthesized result.</p></details>
+        <details><summary>Does it work with any model?</summary><p>Yes. It runs on whatever providers and models Pi is authenticated for, and routes each subagent to a small, medium, or big tier (or an exact model) so cheap work goes to a light model and hard synthesis to a big one.</p></details>
+        <details><summary>What is ultracode?</summary><p>Ultracode is a standing opt-in: type <code>/ultracode</code> and every substantive message auto-arms an exhaustive multi-agent workflow, the way Claude Code's ultracode does. <code>/effort high</code> is the lighter tier, and <code>/ultracode off</code> turns it back off.</p></details>
+        <details><summary>Can an interrupted run resume?</summary><p>Yes. Runs are journaled. A resumed run replays the completed, unchanged agents from the journal (no re-run, no tokens) and only runs what's left or what you changed. The journal survives restarts.</p></details>
+        <details><summary>How is it different from running subagents by hand?</summary><p>The orchestration is code, not chat: fan-out, ordering, and synthesis live in a deterministic script, intermediate results stay out of your context window, and the whole run is journaled so it can resume, show real cost, and be saved as a reusable command.</p></details>
+        <details><summary>How do I install it?</summary><p>Run <code>pi install npm:@quintinshaw/pi-dynamic-workflows</code> and then <code>/reload</code> in Pi. You get the <code>workflow</code> tool plus the <code>/workflows</code>, <code>/ultracode</code>, <code>/deep-research</code>, and <code>/adversarial-review</code> commands.</p></details>
+      </div>
+    </section>
   </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="row">
+        <a href="https://github.com/QuintinShaw/pi-dynamic-workflows">GitHub</a>
+        <a href="https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows">npm</a>
+        <a href="https://pi.dev/packages/@quintinshaw/pi-dynamic-workflows">Pi package</a>
+        <a href="https://github.com/QuintinShaw/pi-dynamic-workflows#readme">Docs</a>
+        <a href="https://pi.dev">Pi</a>
+      </div>
+      <p>The "code mode for subagents" idea comes from Michael Livs' original <a href="https://github.com/Michaelliv/pi-dynamic-workflows">pi-dynamic-workflows</a> and Anthropic's <a href="https://claude.com/blog/introducing-dynamic-workflows-in-claude-code">dynamic workflows in Claude Code</a>. MIT licensed.</p>
+    </div>
+  </footer>
+
+  <script>
+    document.querySelectorAll('button[data-copy]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const el = document.querySelector(btn.getAttribute('data-copy'));
+        if (!el) return;
+        const prev = btn.textContent;
+        try {
+          await navigator.clipboard.writeText(el.textContent.trim());
+          btn.textContent = 'Copied';
+        } catch (e) {
+          btn.textContent = 'Copy failed';
+        }
+        setTimeout(() => { btn.textContent = prev; }, 1400);
+      });
+    });
+  </script>
 </body>
 </html>
