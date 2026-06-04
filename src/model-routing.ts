@@ -37,10 +37,11 @@ export function resolveModelForPhase(phase: string | undefined, config: ModelRou
       } catch {
         // Invalid regex, skip
       }
-    } else {
-      if (phase.toLowerCase().includes(route.phasePattern.toLowerCase())) {
-        return route.model;
-      }
+    } else if (phase === route.phasePattern) {
+      // Exact, case-sensitive match — phase titles are author-controlled literals,
+      // so fuzzy substring matching only caused mis-routes (e.g. "analyze" matching
+      // "analyze-deep" or vice-versa). Use the regex branch for fuzzy needs.
+      return route.model;
     }
   }
 
@@ -48,21 +49,13 @@ export function resolveModelForPhase(phase: string | undefined, config: ModelRou
 }
 
 /**
- * Build model routing instructions for a workflow agent.
+ * Parse model routing from workflow meta: per-phase models from meta.phases[].model
+ * and a top-level default from meta.model (used when no phase route matches).
  */
-export function buildModelRoutingInstructions(
-  phase: string | undefined,
-  config: ModelRoutingConfig,
-): string | undefined {
-  const model = resolveModelForPhase(phase, config);
-  if (!model) return undefined;
-  return `Use model: ${model}`;
-}
-
-/**
- * Parse model routing from workflow meta phases.
- */
-export function parseModelRoutingFromMeta(phases?: Array<{ title: string; model?: string }>): ModelRoutingConfig {
+export function parseModelRoutingFromMeta(
+  phases?: Array<{ title: string; model?: string }>,
+  defaultModel?: string,
+): ModelRoutingConfig {
   const routes: ModelRoute[] = [];
 
   if (phases) {
@@ -76,5 +69,5 @@ export function parseModelRoutingFromMeta(phases?: Array<{ title: string; model?
     }
   }
 
-  return { routes };
+  return { defaultModel, routes };
 }

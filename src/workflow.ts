@@ -29,6 +29,8 @@ export interface WorkflowMeta {
   description: string;
   whenToUse?: string;
   phases?: WorkflowMetaPhase[];
+  /** Default model for agents whose phase has no route and that set no model/tier. */
+  model?: string;
 }
 
 /** One cached agent() result, keyed by its deterministic call index. */
@@ -211,8 +213,8 @@ export async function runWorkflow<T = unknown>(
 ): Promise<WorkflowRunResult<T>> {
   const started = Date.now();
   const { meta, body } = parseWorkflowScript(script);
-  // Per-phase model routing from meta.phases[].model (empty when none declared).
-  const routingConfig = parseModelRoutingFromMeta(meta.phases);
+  // Per-phase model routing from meta.phases[].model, with meta.model as the default.
+  const routingConfig = parseModelRoutingFromMeta(meta.phases, meta.model);
   const maxAgents = options.maxAgents ?? MAX_AGENTS_PER_RUN;
   const agentTimeoutMs = options.agentTimeoutMs ?? DEFAULT_AGENT_TIMEOUT_MS;
   const runId = options.runId ?? `run-${started.toString(36)}`;

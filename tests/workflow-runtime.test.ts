@@ -55,6 +55,21 @@ test("runWorkflow accumulates real per-agent usage (incl. cost + cache tokens)",
   assert.equal(result.tokenUsage?.cacheWrite, 20, "cacheWrite accumulates across agents");
 });
 
+test("meta.model is parsed and routes as the default model for agents", async () => {
+  let seenModel: string | undefined;
+  const recorder = {
+    async run(_p: string, o: { model?: string }) {
+      seenModel = o.model;
+      return "ok";
+    },
+  };
+  const script = `export const meta = { name: 'm', description: 'd', model: 'meta/default-model' }
+await agent('x', { label: 'x' })
+return 1`;
+  await runWorkflow(script, { agent: recorder, persistLogs: false });
+  assert.equal(seenModel, "meta/default-model", "an agent with no model/tier/phase route uses meta.model");
+});
+
 test("runWorkflow falls back to an estimate when provider reports total === 0", async () => {
   const result = await runWorkflow(twoAgentScript, {
     agent: fakeAgent({ total: 0 }, "a result string"),

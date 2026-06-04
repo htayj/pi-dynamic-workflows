@@ -37,7 +37,7 @@ export {
 export type { WorkflowLogger, WorkflowLoggerOptions } from "./logger.js";
 export { createWorkflowLogger } from "./logger.js";
 export type { ModelRoute, ModelRoutingConfig } from "./model-routing.js";
-export { buildModelRoutingInstructions, parseModelRoutingFromMeta, resolveModelForPhase } from "./model-routing.js";
+export { parseModelRoutingFromMeta, resolveModelForPhase } from "./model-routing.js";
 export type { ModelTierConfig } from "./model-tier-config.js";
 export {
   buildDefaultTierConfig,
