@@ -280,3 +280,37 @@ describe("installTaskPanel", () => {
     assert.equal(registeredPlacement, "belowEditor");
   });
 });
+
+describe("renderPanel", () => {
+  const theme = { fg: (_c: string, t: string) => t, bold: (t: string) => t };
+
+  it("hints that finished runs are kept in /workflows history", async () => {
+    const { renderPanel } = await import("../src/task-panel.js");
+    const manager = {
+      listRuns: () => [
+        { runId: "a", workflowName: "live", status: "running", agents: [{ status: "done" }], logs: [] },
+        { runId: "b", workflowName: "old", status: "completed", agents: [], logs: [] },
+        { runId: "c", workflowName: "older", status: "aborted", agents: [], logs: [] },
+      ],
+      getRun: () => undefined,
+    };
+    const lines = renderPanel(manager as never, theme as never);
+    assert.ok(
+      lines.some((l) => /2 finished kept in history/.test(l)),
+      "hint should report the finished-run count",
+    );
+    assert.ok(
+      lines.some((l) => l.includes("/workflows")),
+      "hint should point at /workflows",
+    );
+  });
+
+  it("renders nothing when no run is active", async () => {
+    const { renderPanel } = await import("../src/task-panel.js");
+    const manager = {
+      listRuns: () => [{ runId: "b", workflowName: "old", status: "completed", agents: [], logs: [] }],
+      getRun: () => undefined,
+    };
+    assert.deepEqual(renderPanel(manager as never, theme as never), []);
+  });
+});

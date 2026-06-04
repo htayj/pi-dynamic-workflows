@@ -99,8 +99,9 @@ export function installResultDelivery(pi: ExtensionAPI, manager: WorkflowManager
   });
 }
 
-function renderPanel(manager: WorkflowManager, theme: Theme): string[] {
-  const active = manager.listRuns().filter((r) => r.status === "running" || r.status === "paused");
+export function renderPanel(manager: WorkflowManager, theme: Theme): string[] {
+  const all = manager.listRuns();
+  const active = all.filter((r) => r.status === "running" || r.status === "paused");
   if (!active.length) return [];
   const rows = active.map((r) => {
     const live = manager.getRun(r.runId);
@@ -110,7 +111,15 @@ function renderPanel(manager: WorkflowManager, theme: Theme): string[] {
     const phase = live?.snapshot.currentPhase ? ` · ${live.snapshot.currentPhase}` : "";
     return `  ${icon} ${r.workflowName}  ${done}/${agents.length} agents${phase}`;
   });
-  const hint = theme.fg("dim", "  run /workflows to open");
+  // Finished runs leave this live panel but are kept in the navigator. Tell the
+  // user so a completed run doesn't look like it vanished.
+  const finished = all.filter((r) => r.status !== "running" && r.status !== "paused").length;
+  const hint = theme.fg(
+    "dim",
+    finished > 0
+      ? `  /workflows — open navigator (${finished} finished kept in history)`
+      : "  /workflows — open navigator",
+  );
   return [theme.bold(`Workflows running (${active.length}):`), ...rows, hint];
 }
 
