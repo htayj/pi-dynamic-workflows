@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>pi-dynamic-workflows — Claude Code–style subagents for Pi</title>
-  <meta name="description" content="Turn one prompt into a fleet of subagents. Claude Code–style dynamic workflows for Pi: code-mode orchestration, model routing, journaled resume, and worktree isolation.">
+  <meta name="description" content="Turn one prompt into a fleet of subagents. Claude Code–style dynamic workflows for Pi: code-mode orchestration, model routing, journaled resume, subagent diagnostics, and history.">
   <meta name="robots" content="index, follow">
   <meta name="theme-color" content="#0f766e">
   <link rel="canonical" href="https://quintinshaw.github.io/pi-dynamic-workflows/">
@@ -13,7 +13,7 @@
 
   <!-- Open Graph / Twitter -->
   <meta property="og:title" content="pi-dynamic-workflows — Claude Code–style dynamic workflows for Pi">
-  <meta property="og:description" content="One prompt fans out into a fleet of subagents that cross-check each other and hand back a synthesized answer. Model routing, resume, worktree isolation, cost accounting, ultracode, deep research.">
+  <meta property="og:description" content="One prompt fans out into a fleet of subagents that cross-check each other and hand back a synthesized answer. Model routing, resume, worktree isolation, cost accounting, subagent diagnostics, ultracode, deep research.">
   <meta property="og:url" content="https://quintinshaw.github.io/pi-dynamic-workflows/">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="pi-dynamic-workflows">
@@ -25,7 +25,7 @@
   <meta property="og:image:alt" content="pi-dynamic-workflows fanning a task across subagents in Pi">
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="pi-dynamic-workflows — dynamic workflows for Pi">
-  <meta name="twitter:description" content="Claude Code–style dynamic workflows for Pi: code-mode subagents, model routing, resume, worktree isolation, cost accounting, ultracode, deep research.">
+  <meta name="twitter:description" content="Claude Code–style dynamic workflows for Pi: code-mode subagents, model routing, resume, worktree isolation, subagent diagnostics, ultracode, deep research.">
   <meta name="twitter:image" content="https://quintinshaw.github.io/pi-dynamic-workflows/workflows-mode.jpg">
   <meta name="twitter:image:alt" content="pi-dynamic-workflows fanning a task across subagents in Pi">
 
@@ -36,10 +36,10 @@
       {
         "@type": "SoftwareApplication",
         "name": "pi-dynamic-workflows",
-        "description": "Claude Code–style dynamic workflows for Pi: code-mode subagents with real model routing, journaled resume, git-worktree isolation, cost accounting, ultracode, and deep research.",
+        "description": "Claude Code–style dynamic workflows for Pi: code-mode subagents with real model routing, journaled resume, git-worktree isolation, cost accounting, subagent diagnostics, ultracode, and deep research.",
         "applicationCategory": "DeveloperApplication",
         "operatingSystem": "macOS, Linux, Windows",
-        "softwareVersion": "2.0.0",
+        "softwareVersion": "2.1.0",
         "url": "https://quintinshaw.github.io/pi-dynamic-workflows/",
         "downloadUrl": "https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows",
         "license": "https://opensource.org/licenses/MIT",
@@ -73,6 +73,11 @@
             "@type": "Question",
             "name": "How is it different from running subagents by hand?",
             "acceptedAnswer": { "@type": "Answer", "text": "The orchestration is code, not chat: fan-out, ordering, and synthesis live in a deterministic script, intermediate results stay out of your context window, and the whole run is journaled so it can resume, show real cost, and be saved as a reusable command." }
+          },
+          {
+            "@type": "Question",
+            "name": "How do I debug failing subagents?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Open /workflows, drill into the run, phase, and agent detail. Recoverable failures include an error code and message, and each agent detail shows compact message and tool history so null or empty outputs are diagnosable." }
           },
           {
             "@type": "Question",
@@ -233,12 +238,12 @@
           <code id="install">pi install npm:@quintinshaw/pi-dynamic-workflows</code>
           <button type="button" data-copy="#install" aria-label="Copy install command">Copy</button>
         </div>
-        <p class="trust">Journaled resume · real per-agent cost accounting · git-worktree isolation</p>
+        <p class="trust">Journaled resume · real per-agent cost accounting · subagent diagnostics</p>
 
         <div class="cta">
           <a class="btn primary" href="#quickstart">Get started</a>
           <a class="btn ghost" href="https://github.com/QuintinShaw/pi-dynamic-workflows">Star on GitHub</a>
-          <span class="pill">v2.0.0 · MIT</span>
+          <span class="pill">v2.1.0 · MIT</span>
         </div>
         <p class="also">Also on <a href="https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows">npm</a> · <a href="https://pi.dev/packages/@quintinshaw/pi-dynamic-workflows">Pi package</a></p>
       </div>
@@ -298,7 +303,7 @@ return await agent('Synthesize and double-check:\n' + findings.join('\n\n'), { t
     <section id="features">
       <div class="wrap">
         <h2>What you get</h2>
-        <p class="sub">Code-mode subagents — plus the parts a real run needs: journaled resume, git-worktree isolation, real cost accounting, and per-agent model routing.</p>
+        <p class="sub">Code-mode subagents — plus the parts a real run needs: journaled resume, git-worktree isolation, real cost accounting, subagent diagnostics, and per-agent model routing.</p>
         <div class="grid">
           <div class="card"><h3>Fan-out orchestration</h3><p><code>agent()</code>, <code>parallel()</code>, <code>pipeline()</code>, <code>phase()</code> in a sandboxed script. Up to 16 concurrent / 1000 total subagents; results stay in variables, not the chat.</p></div>
           <div class="card"><h3>Real model routing</h3><p><code>small</code> / <code>medium</code> / <code>big</code> tiers (or an exact model) per agent. It actually switches the subagent's model — cheap work light, hard synthesis big.</p></div>
@@ -306,7 +311,8 @@ return await agent('Synthesize and double-check:\n' + findings.join('\n\n'), { t
           <div class="card"><h3>Git worktree isolation</h3><p><code>isolation: "worktree"</code> gives an agent its own branch, so parallel agents edit the same files without clobbering each other.</p></div>
           <div class="card"><h3>Real cost accounting</h3><p>Token and dollar cost read from each subagent's session, not estimated. <code>budget</code> gates on the real total; <code>/workflows</code> shows the spend.</p></div>
           <div class="card"><h3>Background by default</h3><p>The turn ends immediately; a live task panel tracks each run and the result auto-continues the conversation when it lands.</p></div>
-          <div class="card"><h3>Interactive /workflows TUI</h3><p>Drill runs → phases → agents → detail. Pause, stop, restart, and save runs from the keyboard; each agent shows the model it ran on.</p></div>
+          <div class="card"><h3>Interactive /workflows TUI</h3><p>Drill runs → phases → agents → detail. Inspect prompts, results, failure codes, and compact message/tool history; pause, stop, restart, and save runs.</p></div>
+          <div class="card"><h3>Subagent diagnostics</h3><p>Recoverable failures return <code>null</code> without hiding the cause. Empty outputs are marked <code>AGENT_EMPTY_OUTPUT</code> and shown with compact history in <code>/workflows</code>.</p></div>
           <div class="card"><h3>Quality-pattern stdlib</h3><p>Built-in <code>verify()</code>, <code>judgePanel()</code>, <code>loopUntilDry()</code>, and <code>completenessCheck()</code> for adversarial review, best-of-N, and exhaustive discovery.</p></div>
           <div class="card"><h3>Ultracode</h3><p><code>/ultracode</code> is a standing opt-in that auto-arms an exhaustive workflow for every substantive message.</p></div>
           <div class="card"><h3>Deep research, built in</h3><p><code>/deep-research</code> and <code>/adversarial-review</code>: real web search, source cross-checking, skeptic-vetted findings, and cited reports.</p></div>
@@ -335,6 +341,7 @@ return await agent('Synthesize and double-check:\n' + findings.join('\n\n'), { t
           <dt>/workflows status &lt;id&gt;</dt><dd>Watch a run live; print its result when it finishes.</dd>
           <dt>/workflows save &lt;name&gt;</dt><dd>Save the latest run's script as a reusable <code>/&lt;name&gt;</code> command.</dd>
           <dt>/workflows pause|resume|stop|rm &lt;id&gt;</dt><dd>Manage a run.</dd>
+          <dt>/workflows-trigger off|on|status</dt><dd>Disable, restore, or inspect keyword-triggered workflows mode.</dd>
           <dt>/workflows-models</dt><dd>Map the small / medium / big tiers to real models.</dd>
           <dt>/ultracode [off]</dt><dd>Ultracode: auto-arm an exhaustive workflow for every substantive message.</dd>
           <dt>/effort off|high|ultra</dt><dd>Finer control over the standing opt-in.</dd>
@@ -353,7 +360,7 @@ return await agent('Synthesize and double-check:\n' + findings.join('\n\n'), { t
             <thead><tr><th>Claude Code dynamic workflows</th><th>pi-dynamic-workflows (on Pi)</th></tr></thead>
             <tbody>
               <tr><td>Code-mode orchestration — the model writes a script that drives subagents</td><td>A JS <code>workflow</code> tool running <code>agent()</code> / <code>parallel()</code> / <code>pipeline()</code> / <code>phase()</code> in a vm sandbox</td></tr>
-              <tr><td>Subagents with isolated context</td><td>Fresh in-memory Pi sessions; results held in script variables, not the chat</td></tr>
+              <tr><td>Subagents with isolated context</td><td>Fresh in-memory Pi sessions; results held in script variables, not the chat; compact per-agent history is visible in <code>/workflows</code></td></tr>
               <tr><td>Structured outputs</td><td>JSON-Schema <code>schema</code> → a validated object, with bounded repair if the model misses</td></tr>
               <tr><td>Background runs</td><td>Non-blocking by default, a live task panel, and auto-continue delivery</td></tr>
               <tr><td>Resume</td><td><strong>Journaled + replayable</strong> — survives restarts and replays the unchanged prefix</td></tr>
@@ -374,6 +381,7 @@ return await agent('Synthesize and double-check:\n' + findings.join('\n\n'), { t
         <details><summary>What is ultracode?</summary><p>Ultracode is a standing opt-in: type <code>/ultracode</code> and every substantive message auto-arms an exhaustive multi-agent workflow, the way Claude Code's ultracode does. <code>/effort high</code> is the lighter tier, and <code>/ultracode off</code> turns it back off.</p></details>
         <details><summary>Can an interrupted run resume?</summary><p>Yes. Runs are journaled. A resumed run replays the completed, unchanged agents from the journal (no re-run, no tokens) and only runs what's left or what you changed. The journal survives restarts.</p></details>
         <details><summary>How is it different from running subagents by hand?</summary><p>The orchestration is code, not chat: fan-out, ordering, and synthesis live in a deterministic script, intermediate results stay out of your context window, and the whole run is journaled so it can resume, show real cost, and be saved as a reusable command.</p></details>
+        <details><summary>How do I debug failing subagents?</summary><p>Open <code>/workflows</code>, drill into the run, phase, and agent detail. Recoverable failures include an error code and message, and each agent detail shows compact message/tool history so <code>null</code> or empty outputs are diagnosable.</p></details>
         <details><summary>How do I install it?</summary><p>Run <code>pi install npm:@quintinshaw/pi-dynamic-workflows</code> and then <code>/reload</code> in Pi. You get the <code>workflow</code> tool plus the <code>/workflows</code>, <code>/ultracode</code>, <code>/deep-research</code>, and <code>/adversarial-review</code> commands.</p></details>
       </div>
     </section>
