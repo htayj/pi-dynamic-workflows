@@ -274,6 +274,15 @@ describe("buildForcedWorkflowPrompt", () => {
     assert.ok(result.includes("MUST"), "should contain MUST");
   });
 
+  it("includes use-verification and the destructive exception", async () => {
+    const { buildForcedWorkflowPrompt } = await load();
+    const result = buildForcedWorkflowPrompt("test");
+    assert.ok(result.includes("Use Verification"), "should mention Use Verification");
+    assert.ok(result.includes("non-destructive"), "should mention non-destructive verification");
+    assert.ok(result.includes("destructive"), "should mention the destructive exception");
+    assert.ok(result.includes("skipped-verification"), "should require an explicit skipped-verification agent");
+  });
+
   it("is a multi-line string", async () => {
     const { buildForcedWorkflowPrompt } = await load();
     const result = buildForcedWorkflowPrompt("test");

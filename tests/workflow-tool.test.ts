@@ -64,6 +64,26 @@ test("createWorkflowTool promptGuidelines mention model routing", () => {
   assert.ok(all.includes("small") || all.includes("medium") || all.includes("big"), "should mention tier names");
 });
 
+test("createWorkflowTool promptGuidelines require use-verification", () => {
+  const tool = createWorkflowTool();
+  const all = tool.promptGuidelines.join(" ");
+  for (const term of [
+    "Use Verification",
+    "agent",
+    "application",
+    "non-destructive",
+    "destructive",
+    "tmux",
+    "Playwright",
+    "screenshot/image analysis",
+    "computer-use",
+    "xvfb",
+    "image gate",
+  ]) {
+    assert.ok(all.includes(term), `should mention ${term}`);
+  }
+});
+
 // ─── modelRoutingGuideline ──────────────────────────────────────────────────────
 
 test("modelRoutingGuideline mentions all three tier names", () => {

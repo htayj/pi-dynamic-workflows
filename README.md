@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@quintinshaw/pi-dynamic-workflows?color=cb3837&logo=npm)](https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows)
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 [![for Pi](https://img.shields.io/badge/for-Pi-7c3aed)](https://pi.dev)
-[![tests](https://img.shields.io/badge/tests-661%20passing-success)](#development)
+[![tests](https://img.shields.io/badge/tests-663%20passing-success)](#development)
 
 > **Claude Code–style dynamic workflows for [Pi](https://pi.dev).**
 > Turn one prompt into a fleet of subagents that fan out in parallel, cross-check each other, and hand back a single synthesized answer.
@@ -45,22 +45,28 @@ Plain JavaScript. The first statement exports literal metadata; then you orchest
 ```js
 export const meta = {
   name: 'auth_audit',
-  description: 'Find routes missing auth checks and verify the findings',
-  phases: [{ title: 'Scan' }, { title: 'Review' }, { title: 'Verify' }],
+  description: 'Find routes missing auth checks and verify them by using the app',
+  phases: [{ title: 'Scan' }, { title: 'Review' }, { title: 'Use Verification' }, { title: 'Synthesize' }],
 }
 
 phase('Scan')
-const files = await agent('List every route file under src/routes/.', { tier: 'small' })
+const files = await agent('List every route file under src/routes/.', { tier: 'small', label: 'route inventory' })
 
 phase('Review')
 const findings = await parallel(
   files.split('\n').filter(Boolean).map((file) =>
-    () => agent(`Audit ${file} for missing auth checks.`, { tier: 'medium', isolation: 'worktree' }),
+    () => agent(`Audit ${file} for missing auth checks.`, { tier: 'medium', isolation: 'worktree', label: `audit ${file}` }),
   ),
 )
 
-phase('Verify')
-return await agent('Synthesize and double-check these findings:\n' + findings.join('\n\n'), { tier: 'big' })
+phase('Use Verification')
+const verification = await agent(
+  'Use the actual application non-destructively to verify representative auth findings. Start the app if needed, exercise protected routes with unauthenticated/test requests (for web UI/API use Playwright and capture screenshots), and report concrete evidence. Do not rely only on code review, unit tests, or verify().\n\nFindings:\n' + findings.join('\n\n'),
+  { tier: 'medium', label: 'app verification' },
+)
+
+phase('Synthesize')
+return await agent('Synthesize the findings and real app-use verification evidence:\n' + findings.join('\n\n') + '\n\nVerification:\n' + verification, { tier: 'big', label: 'final synthesis' })
 ```
 
 `agent()` spawns an isolated subagent, `parallel()` runs many at once, `phase()` groups them in the live view, and `tier` routes each one to the right model. That's the whole idea.
@@ -117,6 +123,8 @@ In the navigator: `↑/↓` select · `enter`/`→` open · `esc`/`←` back · 
 
 The full guide — every global, agent option, `agentType` definitions, structured output, and determinism — lives on the **[website](https://quintinshaw.github.io/pi-dynamic-workflows/)**. The essentials:
 
+Non-trivial workflows that implement, change, or verify application behavior must include a `Use Verification` phase/stage in `meta.phases` and run an `agent()` there that uses the actual application or system non-destructively. Code review, tests, or `verify()` alone are not enough. Use the right modality: TUI apps via `tmux`, web pages via Playwright with captured screenshots and image analysis, GUI apps via computer-use under `xvfb` with screenshots/images and an image gate, and other apps via equivalent real use. If verification would be destructive and no non-destructive or sandbox option exists, the workflow must include an explicit skipped-verification agent explaining why.
+
 | Global | What it does |
 | --- | --- |
 | `agent(prompt, opts)` | Spawn an isolated subagent. Returns its final text, or a validated object with `opts.schema`; recoverable failures return `null` with diagnostics in `/workflows`. |
@@ -143,7 +151,7 @@ Workflows run in a Node `vm` sandbox; `Date.now()`, `Math.random()`, `new Date()
 
 ```bash
 npm install
-npm test     # biome + tsc + 661 unit tests
+npm test     # biome + tsc + 663 unit tests
 ```
 
 Every feature is also verified end-to-end against a real Pi subagent session before release.

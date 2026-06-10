@@ -270,6 +270,7 @@ export function buildForcedWorkflowPrompt(text: string, extraDirective?: string)
     "deterministic JavaScript workflow-orchestration tool from pi-dynamic-workflows).",
     "Write a workflow script that fans the task out across subagents via",
     "agent()/parallel()/pipeline().",
+    "Every non-trivial workflow that implements, changes, or verifies application behavior MUST include meta.phases with `{ title: 'Use Verification' }` and a distinct `Use Verification` phase/stage containing an agent() that actually uses the application/system non-destructively to verify the requested behavior. Code review, tests, and verify() alone are not enough. Modality expectations: TUIs via tmux; web pages via Playwright plus captured screenshots and screenshot/image analysis; GUI apps via computer-use under xvfb plus screenshots/images and an image gate; other systems via equivalent real use. Only skip use-verification when it would be destructive and no non-destructive/sandbox option exists; then include an explicit skipped-verification agent explaining why.",
     "",
     "The ONLY acceptable action is a `workflow` tool call. Do NOT instead:",
     "- answer directly or in prose,",
