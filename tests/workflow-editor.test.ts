@@ -274,13 +274,31 @@ describe("buildForcedWorkflowPrompt", () => {
     assert.ok(result.includes("MUST"), "should contain MUST");
   });
 
-  it("includes use-verification and the destructive exception", async () => {
+  it("includes antagonistic review, use-verification, and the destructive exception", async () => {
     const { buildForcedWorkflowPrompt } = await load();
     const result = buildForcedWorkflowPrompt("test");
-    assert.ok(result.includes("Use Verification"), "should mention Use Verification");
-    assert.ok(result.includes("non-destructive"), "should mention non-destructive verification");
-    assert.ok(result.includes("destructive"), "should mention the destructive exception");
-    assert.ok(result.includes("skipped-verification"), "should require an explicit skipped-verification agent");
+    for (const term of [
+      "Antagonistic Code Review",
+      "independent",
+      "skeptical/hostile",
+      "bugs",
+      "security",
+      "regressions",
+      "missing tests",
+      "satisfied the user",
+      "fix or explicitly rebut",
+      "code review is not applicable",
+      "Use Verification",
+      "non-destructive",
+      "destructive",
+      "skipped-verification",
+    ]) {
+      assert.ok(result.includes(term), `should mention ${term}`);
+    }
+    assert.ok(
+      result.indexOf("Antagonistic Code Review") < result.indexOf("Use Verification"),
+      "Antagonistic Code Review should appear before Use Verification",
+    );
   });
 
   it("is a multi-line string", async () => {

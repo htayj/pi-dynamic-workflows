@@ -64,10 +64,20 @@ test("createWorkflowTool promptGuidelines mention model routing", () => {
   assert.ok(all.includes("small") || all.includes("medium") || all.includes("big"), "should mention tier names");
 });
 
-test("createWorkflowTool promptGuidelines require use-verification", () => {
+test("createWorkflowTool promptGuidelines require mandatory review and use-verification stages", () => {
   const tool = createWorkflowTool();
   const all = tool.promptGuidelines.join(" ");
   for (const term of [
+    "Antagonistic Code Review",
+    "independent",
+    "skeptical/hostile",
+    "bugs",
+    "security",
+    "regressions",
+    "missing tests",
+    "satisfied the user",
+    "fix or explicitly rebut",
+    "code review is not applicable",
     "Use Verification",
     "agent",
     "application",
@@ -82,6 +92,10 @@ test("createWorkflowTool promptGuidelines require use-verification", () => {
   ]) {
     assert.ok(all.includes(term), `should mention ${term}`);
   }
+  assert.ok(
+    all.indexOf("Antagonistic Code Review") < all.indexOf("Use Verification"),
+    "Antagonistic Code Review should appear before Use Verification",
+  );
 });
 
 // ─── modelRoutingGuideline ──────────────────────────────────────────────────────

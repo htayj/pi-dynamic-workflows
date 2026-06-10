@@ -46,7 +46,13 @@ Plain JavaScript. The first statement exports literal metadata; then you orchest
 export const meta = {
   name: 'auth_audit',
   description: 'Find routes missing auth checks and verify them by using the app',
-  phases: [{ title: 'Scan' }, { title: 'Review' }, { title: 'Use Verification' }, { title: 'Synthesize' }],
+  phases: [
+    { title: 'Scan' },
+    { title: 'Review' },
+    { title: 'Antagonistic Code Review' },
+    { title: 'Use Verification' },
+    { title: 'Synthesize' },
+  ],
 }
 
 phase('Scan')
@@ -59,14 +65,20 @@ const findings = await parallel(
   ),
 )
 
+phase('Antagonistic Code Review')
+const review = await agent(
+  'Act as an independent skeptical/hostile reviewer. Inspect the audit findings for bugs in reasoning, security issues, regressions, missing tests or missing evidence, and whether the workflow satisfied the user request. Because this workflow did not change code, perform the analogous artifact/answer review and note that patch code review is not applicable. Later phases must fix or explicitly rebut every finding.\n\nFindings:\n' + findings.join('\n\n'),
+  { tier: 'medium', label: 'hostile review' },
+)
+
 phase('Use Verification')
 const verification = await agent(
-  'Use the actual application non-destructively to verify representative auth findings. Start the app if needed, exercise protected routes with unauthenticated/test requests (for web UI/API use Playwright and capture screenshots), and report concrete evidence. Do not rely only on code review, unit tests, or verify().\n\nFindings:\n' + findings.join('\n\n'),
+  'Use the actual application non-destructively to verify representative auth findings and address the antagonistic review. Start the app if needed, exercise protected routes with unauthenticated/test requests (for web UI/API use Playwright and capture screenshots), and report concrete evidence. Do not rely only on code review, unit tests, or verify().\n\nFindings:\n' + findings.join('\n\n') + '\n\nAntagonistic Code Review:\n' + review,
   { tier: 'medium', label: 'app verification' },
 )
 
 phase('Synthesize')
-return await agent('Synthesize the findings and real app-use verification evidence:\n' + findings.join('\n\n') + '\n\nVerification:\n' + verification, { tier: 'big', label: 'final synthesis' })
+return await agent('Synthesize the findings, Antagonistic Code Review, and real app-use verification evidence. Fix or explicitly rebut every review finding before concluding.\n\nFindings:\n' + findings.join('\n\n') + '\n\nAntagonistic Code Review:\n' + review + '\n\nVerification:\n' + verification, { tier: 'big', label: 'final synthesis' })
 ```
 
 `agent()` spawns an isolated subagent, `parallel()` runs many at once, `phase()` groups them in the live view, and `tier` routes each one to the right model. That's the whole idea.
@@ -123,6 +135,8 @@ In the navigator: `↑/↓` select · `enter`/`→` open · `esc`/`←` back · 
 ## Reference
 
 The full guide — every global, agent option, `agentType` definitions, structured output, and determinism — lives on the **[website](https://quintinshaw.github.io/pi-dynamic-workflows/)**. The essentials:
+
+Non-trivial workflows that implement, change, or draft code or code-like artifacts must include an `Antagonistic Code Review` phase/stage in `meta.phases` as `{ title: 'Antagonistic Code Review' }`, call `phase('Antagonistic Code Review')`, and run an independent skeptical/hostile reviewer agent after the implementation/artifact draft and before `Use Verification` or final synthesis. The reviewer must inspect changed code, diffs, design, or produced artifacts for bugs, security issues, regressions, missing tests, and whether the workflow satisfied the user request. The workflow must fix or explicitly rebut findings before completion. For no-code workflows, run an analogous antagonistic artifact/answer review or include an explicit note explaining why code review is not applicable.
 
 Non-trivial workflows that implement, change, or verify application behavior must include a `Use Verification` phase/stage in `meta.phases` and run an `agent()` there that uses the actual application or system non-destructively. Code review, tests, or `verify()` alone are not enough. Use the right modality: TUI apps via `tmux`, web pages via Playwright with captured screenshots and image analysis, GUI apps via computer-use under `xvfb` with screenshots/images and an image gate, and other apps via equivalent real use. If verification would be destructive and no non-destructive or sandbox option exists, the workflow must include an explicit skipped-verification agent explaining why.
 
