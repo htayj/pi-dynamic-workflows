@@ -64,7 +64,7 @@ test("createWorkflowTool promptGuidelines mention model routing", () => {
   assert.ok(all.includes("small") || all.includes("medium") || all.includes("big"), "should mention tier names");
 });
 
-test("createWorkflowTool promptGuidelines require mandatory review and use-verification stages", () => {
+test("createWorkflowTool promptGuidelines require mandatory review, use-verification, and commit/push gate stages", () => {
   const tool = createWorkflowTool();
   const all = tool.promptGuidelines.join(" ");
   for (const term of [
@@ -89,12 +89,26 @@ test("createWorkflowTool promptGuidelines require mandatory review and use-verif
     "computer-use",
     "xvfb",
     "image gate",
+    "Commit & Push Gate",
+    "git-tracked",
+    "owned or are authorized",
+    "leak/secret check",
+    "gitleaks protect --staged",
+    "must not commit or push",
+    "user said not to",
+    "review/verification failed",
+    "destructive/unwanted",
+    "explicitly report why",
   ]) {
     assert.ok(all.includes(term), `should mention ${term}`);
   }
   assert.ok(
     all.indexOf("Antagonistic Code Review") < all.indexOf("Use Verification"),
     "Antagonistic Code Review should appear before Use Verification",
+  );
+  assert.ok(
+    all.indexOf("Use Verification") < all.indexOf("Commit & Push Gate"),
+    "Use Verification should appear before Commit & Push Gate",
   );
 });
 

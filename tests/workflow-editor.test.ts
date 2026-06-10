@@ -274,7 +274,7 @@ describe("buildForcedWorkflowPrompt", () => {
     assert.ok(result.includes("MUST"), "should contain MUST");
   });
 
-  it("includes antagonistic review, use-verification, and the destructive exception", async () => {
+  it("includes antagonistic review, use-verification, commit/push gate, and destructive exceptions", async () => {
     const { buildForcedWorkflowPrompt } = await load();
     const result = buildForcedWorkflowPrompt("test");
     for (const term of [
@@ -292,12 +292,26 @@ describe("buildForcedWorkflowPrompt", () => {
       "non-destructive",
       "destructive",
       "skipped-verification",
+      "Commit & Push Gate",
+      "git-tracked",
+      "owned or are authorized",
+      "leak/secret check",
+      "gitleaks protect --staged",
+      "user said not to",
+      "review/verification failed",
+      "destructive/unwanted",
+      "explicitly report why",
     ]) {
       assert.ok(result.includes(term), `should mention ${term}`);
     }
+    assert.ok(result.toLowerCase().includes("must not commit or push"), "should mention must not commit or push");
     assert.ok(
       result.indexOf("Antagonistic Code Review") < result.indexOf("Use Verification"),
       "Antagonistic Code Review should appear before Use Verification",
+    );
+    assert.ok(
+      result.indexOf("Use Verification") < result.indexOf("Commit & Push Gate"),
+      "Use Verification should appear before Commit & Push Gate",
     );
   });
 
