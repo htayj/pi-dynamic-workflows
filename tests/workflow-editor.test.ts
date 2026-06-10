@@ -151,6 +151,20 @@ describe("endsWithTrigger", () => {
   });
 });
 
+describe("hasNoFlowOptOut", () => {
+  it("detects noflow case-insensitively as a word", async () => {
+    const { hasNoFlowOptOut } = await load();
+    assert.equal(hasNoFlowOptOut("please noflow this"), true);
+    assert.equal(hasNoFlowOptOut("NOFLOW, answer directly"), true);
+  });
+
+  it("does not match unrelated words", async () => {
+    const { hasNoFlowOptOut } = await load();
+    assert.equal(hasNoFlowOptOut("snowflow is not the opt-out"), false);
+    assert.equal(hasNoFlowOptOut("no flow with a space"), false);
+  });
+});
+
 describe("tokenizeAnsi", () => {
   it("returns one token per char for plain text", async () => {
     const { tokenizeAnsi } = await load();
@@ -622,7 +636,7 @@ describe("installWorkflowEditor", () => {
     assert.ok(savedTools.includes("workflow"), `saved tools (${savedTools.join(", ")}) should include "workflow"`);
   });
 
-  it("does not transform keyword-triggered input when /workflows-trigger is off", async () => {
+  it("does not transform a trivial keyword input when /workflows-trigger is off", async () => {
     const mod = await load();
     const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
     const commands = new Map<string, { handler: (args: string, ctx: unknown) => Promise<void> }>();
@@ -652,16 +666,19 @@ describe("installWorkflowEditor", () => {
     assert.ok(inputHandler, "input handler should be registered");
     const result = inputHandler({
       source: "interactive",
-      text: "Please discuss workflows as a normal topic.",
+      text: "workflows?",
     });
 
     assert.deepEqual(result, { action: "continue" });
     assert.equal(setActiveToolsCalls, 0);
   });
 
-  it("does not transform one-shot backspace-suppressed keyword input", async () => {
+  it("does not transform one-shot backspace-suppressed keyword input when automatic effort is off", async () => {
     const mod = await load();
+    const { createEffortState } = await import("../src/effort-command.js");
     const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    const effort = createEffortState();
+    effort.level = "off";
     let setActiveToolsCalls = 0;
     const pi = {
       on: (event: string, handler: (...args: unknown[]) => unknown) => {
@@ -679,7 +696,7 @@ describe("installWorkflowEditor", () => {
       setEditorComponent: () => {},
     } as unknown as ExtensionUIContext;
 
-    const state = mod.installWorkflowEditor(pi, ui);
+    const state = mod.installWorkflowEditor(pi, ui, effort);
     state.suppressedKeywordText = "Please discuss workflows as a normal topic.";
 
     const inputHandler = captured.find((h) => h.event === "input")?.handler;
@@ -694,8 +711,46 @@ describe("installWorkflowEditor", () => {
     assert.equal(state.suppressedKeywordText, undefined, "suppression should be consumed after one submit");
   });
 
+  it("still auto-transforms substantive input after keyword backspace suppression", async () => {
+    const mod = await load();
+    const { effortDirective } = await import("../src/effort-command.js");
+    const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    let tools: string[] = [];
+    const pi = {
+      on: (event: string, handler: (...args: unknown[]) => unknown) => {
+        captured.push({ event, handler });
+      },
+      registerCommand: () => {},
+      sendMessage: () => {},
+      getActiveTools: () => ["bash", "read"],
+      setActiveTools: (next: string[]) => {
+        tools = next;
+      },
+    } as unknown as ExtensionAPI;
+
+    const ui = {
+      setEditorComponent: () => {},
+    } as unknown as ExtensionUIContext;
+
+    const state = mod.installWorkflowEditor(pi, ui);
+    const text = "Please discuss workflows as a normal topic.";
+    state.suppressedKeywordText = text;
+
+    const inputHandler = captured.find((h) => h.event === "input")?.handler;
+    assert.ok(inputHandler, "input handler should be registered");
+    const result = inputHandler({ source: "interactive", text });
+
+    assert.deepEqual(result, {
+      action: "transform",
+      text: mod.buildForcedWorkflowPrompt(text, effortDirective("high")),
+    });
+    assert.equal(state.suppressedKeywordText, undefined, "suppression should be consumed after one submit");
+    assert.ok(tools.includes(mod.WORKFLOW_TOOL_NAME), "default auto mode should add the workflow tool");
+  });
+
   it("transforms the same keyword input later when it was not just suppressed", async () => {
     const mod = await load();
+    const { effortDirective } = await import("../src/effort-command.js");
     const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
     const pi = {
       on: (event: string, handler: (...args: unknown[]) => unknown) => {
@@ -720,8 +775,217 @@ describe("installWorkflowEditor", () => {
 
     assert.deepEqual(result, {
       action: "transform",
-      text: mod.buildForcedWorkflowPrompt(text),
+      text: mod.buildForcedWorkflowPrompt(text, effortDirective("high")),
     });
+  });
+
+  it("auto-transforms substantive non-keyword input by default", async () => {
+    const mod = await load();
+    const { effortDirective } = await import("../src/effort-command.js");
+    const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    let tools: string[] = [];
+    const pi = {
+      on: (event: string, handler: (...args: unknown[]) => unknown) => {
+        captured.push({ event, handler });
+      },
+      registerCommand: () => {},
+      sendMessage: () => {},
+      getActiveTools: () => ["bash", "read"],
+      setActiveTools: (next: string[]) => {
+        tools = next;
+      },
+    } as unknown as ExtensionAPI;
+
+    const ui = {
+      setEditorComponent: () => {},
+    } as unknown as ExtensionUIContext;
+
+    mod.installWorkflowEditor(pi, ui);
+
+    const text = "Audit the auth module for race conditions and summarize fixes.";
+    const inputHandler = captured.find((h) => h.event === "input")?.handler;
+    assert.ok(inputHandler, "input handler should be registered");
+    const result = inputHandler({ source: "interactive", text });
+
+    assert.deepEqual(result, {
+      action: "transform",
+      text: mod.buildForcedWorkflowPrompt(text, effortDirective("high")),
+    });
+    assert.ok(tools.includes(mod.WORKFLOW_TOOL_NAME), "default auto mode should add the workflow tool");
+  });
+
+  it("adds the effort directive to substantive keyword-triggered input", async () => {
+    const mod = await load();
+    const { createEffortState, effortDirective } = await import("../src/effort-command.js");
+    const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    const effort = createEffortState();
+    effort.level = "ultra";
+    const pi = {
+      on: (event: string, handler: (...args: unknown[]) => unknown) => {
+        captured.push({ event, handler });
+      },
+      registerCommand: () => {},
+      sendMessage: () => {},
+      getActiveTools: () => ["bash", "read"],
+      setActiveTools: () => {},
+    } as unknown as ExtensionAPI;
+
+    const ui = {
+      setEditorComponent: () => {},
+    } as unknown as ExtensionUIContext;
+
+    mod.installWorkflowEditor(pi, ui, effort);
+
+    const text = "Please run a workflow audit of the auth module race conditions.";
+    const inputHandler = captured.find((h) => h.event === "input")?.handler;
+    assert.ok(inputHandler, "input handler should be registered");
+    const result = inputHandler({ source: "interactive", text });
+
+    assert.deepEqual(result, {
+      action: "transform",
+      text: mod.buildForcedWorkflowPrompt(text, effortDirective("ultra")),
+    });
+  });
+
+  it("keeps default substantive auto-workflows on when /workflows-trigger is off", async () => {
+    const mod = await load();
+    const { effortDirective } = await import("../src/effort-command.js");
+    const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    const commands = new Map<string, { handler: (args: string, ctx: unknown) => Promise<void> }>();
+    let tools: string[] = [];
+    const pi = {
+      on: (event: string, handler: (...args: unknown[]) => unknown) => {
+        captured.push({ event, handler });
+      },
+      registerCommand: (name: string, command: { handler: (args: string, ctx: unknown) => Promise<void> }) => {
+        commands.set(name, command);
+      },
+      sendMessage: () => {},
+      getActiveTools: () => ["bash", "read"],
+      setActiveTools: (next: string[]) => {
+        tools = next;
+      },
+    } as unknown as ExtensionAPI;
+
+    const ui = {
+      setEditorComponent: () => {},
+    } as unknown as ExtensionUIContext;
+
+    mod.installWorkflowEditor(pi, ui);
+    await commands.get("workflows-trigger")?.handler("off", {});
+
+    const text = "Audit the auth module for race conditions and summarize fixes.";
+    const inputHandler = captured.find((h) => h.event === "input")?.handler;
+    assert.ok(inputHandler, "input handler should be registered");
+    const result = inputHandler({ source: "interactive", text });
+
+    assert.deepEqual(result, {
+      action: "transform",
+      text: mod.buildForcedWorkflowPrompt(text, effortDirective("high")),
+    });
+    assert.ok(tools.includes(mod.WORKFLOW_TOOL_NAME), "default auto mode should add the workflow tool");
+  });
+
+  it("does not transform substantive input when /effort is off", async () => {
+    const mod = await load();
+    const { createEffortState } = await import("../src/effort-command.js");
+    const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    const effort = createEffortState();
+    effort.level = "off";
+    let setActiveToolsCalls = 0;
+    const pi = {
+      on: (event: string, handler: (...args: unknown[]) => unknown) => {
+        captured.push({ event, handler });
+      },
+      registerCommand: () => {},
+      sendMessage: () => {},
+      getActiveTools: () => ["bash", "read"],
+      setActiveTools: () => {
+        setActiveToolsCalls++;
+      },
+    } as unknown as ExtensionAPI;
+
+    const ui = {
+      setEditorComponent: () => {},
+    } as unknown as ExtensionUIContext;
+
+    mod.installWorkflowEditor(pi, ui, effort);
+
+    const inputHandler = captured.find((h) => h.event === "input")?.handler;
+    assert.ok(inputHandler, "input handler should be registered");
+    const result = inputHandler({
+      source: "interactive",
+      text: "Audit the auth module for race conditions and summarize fixes.",
+    });
+
+    assert.deepEqual(result, { action: "continue" });
+    assert.equal(setActiveToolsCalls, 0);
+  });
+
+  it("does not transform raw messages containing noflow", async () => {
+    const mod = await load();
+    const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    let setActiveToolsCalls = 0;
+    const pi = {
+      on: (event: string, handler: (...args: unknown[]) => unknown) => {
+        captured.push({ event, handler });
+      },
+      registerCommand: () => {},
+      sendMessage: () => {},
+      getActiveTools: () => ["bash", "read"],
+      setActiveTools: () => {
+        setActiveToolsCalls++;
+      },
+    } as unknown as ExtensionAPI;
+
+    const ui = {
+      setEditorComponent: () => {},
+    } as unknown as ExtensionUIContext;
+
+    mod.installWorkflowEditor(pi, ui);
+
+    const inputHandler = captured.find((h) => h.event === "input")?.handler;
+    assert.ok(inputHandler, "input handler should be registered");
+    const result = inputHandler({
+      source: "interactive",
+      text: "NOFLOW please run a workflow to audit the auth module thoroughly.",
+    });
+
+    assert.deepEqual(result, { action: "continue" });
+    assert.equal(setActiveToolsCalls, 0);
+  });
+
+  it("does not force slash commands even when they mention workflow", async () => {
+    const mod = await load();
+    const captured: Array<{ event: string; handler: (...args: unknown[]) => unknown }> = [];
+    let setActiveToolsCalls = 0;
+    const pi = {
+      on: (event: string, handler: (...args: unknown[]) => unknown) => {
+        captured.push({ event, handler });
+      },
+      registerCommand: () => {},
+      sendMessage: () => {},
+      getActiveTools: () => ["bash", "read"],
+      setActiveTools: () => {
+        setActiveToolsCalls++;
+      },
+    } as unknown as ExtensionAPI;
+
+    const ui = {
+      setEditorComponent: () => {},
+    } as unknown as ExtensionUIContext;
+
+    mod.installWorkflowEditor(pi, ui);
+
+    const inputHandler = captured.find((h) => h.event === "input")?.handler;
+    assert.ok(inputHandler, "input handler should be registered");
+    const result = inputHandler({
+      source: "interactive",
+      text: "/ask please run a workflow to audit the auth module thoroughly",
+    });
+
+    assert.deepEqual(result, { action: "continue" });
+    assert.equal(setActiveToolsCalls, 0);
   });
 
   it("still transforms effort-armed input when the keyword trigger is off", async () => {

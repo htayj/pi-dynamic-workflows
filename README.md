@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@quintinshaw/pi-dynamic-workflows?color=cb3837&logo=npm)](https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows)
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 [![for Pi](https://img.shields.io/badge/for-Pi-7c3aed)](https://pi.dev)
-[![tests](https://img.shields.io/badge/tests-651%20passing-success)](#development)
+[![tests](https://img.shields.io/badge/tests-661%20passing-success)](#development)
 
 > **Claude Code–style dynamic workflows for [Pi](https://pi.dev).**
 > Turn one prompt into a fleet of subagents that fan out in parallel, cross-check each other, and hand back a single synthesized answer.
@@ -32,11 +32,11 @@ Ask in plain language:
 Run a workflow to audit every route under src/routes/ for missing auth checks.
 ```
 
-Pi writes the script and runs it in the background — your turn ends immediately and a live panel tracks progress while you keep working. Or just type the word **workflows** in any message to force one. If you only want to discuss workflows without triggering one, run `/workflows-trigger off`, check the current state with `/workflows-trigger status`, and turn it back on with `/workflows-trigger on`.
+Pi writes the script and runs it in the background — your turn ends immediately and a live panel tracks progress while you keep working. Substantive interactive requests auto-arm workflows by default, even if you never type `workflow` or run `/effort`. Add the word `noflow` anywhere in a message for a one-shot opt-out; slash commands and terse/trivial messages are left alone. `/effort off` disables automatic substantive-message forcing for the session, while `/effort high` and `/effort ultra` restore/raise it. You can still type **workflow** or **workflows** to force keyword mode for short prompts; `/workflows-trigger off|on|status` controls only that keyword trigger.
 
 ![Workflows mode in the input box](https://raw.githubusercontent.com/QuintinShaw/pi-dynamic-workflows/main/docs/media/workflows-mode.jpg)
 
-If another Pi extension has already installed a custom editor component, pi-dynamic-workflows leaves it in place and keeps the submit-time workflow trigger active. In that compatibility mode, the animated keyword highlight and Backspace one-shot disarm affordance are skipped because the existing editor remains responsible for rendering and input handling; use `/workflows-trigger off` when you need to discuss workflow/workflows without auto-triggering. Editor composition is load-order dependent: whichever extension installs a visual editor last owns the editor surface, while pi-dynamic-workflows still keeps its submit-time hook registered.
+If another Pi extension has already installed a custom editor component, pi-dynamic-workflows leaves it in place and keeps the submit-time workflow trigger active. In that compatibility mode, the animated keyword highlight and Backspace keyword-disarm affordance are skipped because the existing editor remains responsible for rendering and input handling; add `noflow` to a message or use `/effort off` when you need to discuss a substantive task without auto-triggering. Editor composition is load-order dependent: whichever extension installs a visual editor last owns the editor surface, while pi-dynamic-workflows still keeps its submit-time hook registered.
 
 ## What a workflow looks like
 
@@ -75,7 +75,7 @@ return await agent('Synthesize and double-check these findings:\n' + findings.jo
 - **Background by default** — the turn ends right away, a live "Workflows running" panel tracks runs, and each result is delivered back so the conversation auto-continues when it finishes.
 - **Interactive `/workflows` TUI** — drill runs → phases → agents → detail; inspect per-agent failures and compact subagent history; pause, stop, restart, and save runs from the keyboard.
 - **Quality patterns built in** — `verify()`, `judgePanel()`, `loopUntilDry()`, and `completenessCheck()` for adversarial review, best-of-N, and exhaustive discovery.
-- **Ultracode** — `/ultracode` is a standing opt-in that auto-arms an exhaustive multi-agent workflow for every substantive message, the way Claude Code's ultracode does. `/effort high` is the lighter tier.
+- **Default auto-workflows** — substantive interactive messages auto-arm a thorough multi-agent workflow by default. Add `noflow` for one message, `/effort off` for the session, or `/ultracode`/`/effort ultra` for exhaustive fan-out.
 - **Bundled `/deep-research` + `/adversarial-review`** — real web search, source cross-checking, and cited reports.
 - **Saved & nested workflows** — turn any run into a `/<name>` command, and compose saved workflows from inside other scripts.
 
@@ -91,7 +91,7 @@ The same model — on Pi, plus the production pieces a real run needs:
 | Background runs | Non-blocking by default, a live task panel, and auto-continue delivery |
 | Resume | **Journaled + replayable** — survives restarts and replays the unchanged prefix |
 | Model selection | **Per-agent / per-phase routing** across any provider Pi is authenticated for |
-| Ultracode (standing maximal-effort opt-in) | **`/ultracode`** (or `/effort ultra`) — auto-arms an exhaustive workflow for every substantive message |
+| Ultracode / automatic orchestration | Substantive prompts auto-arm workflows by default; **`/ultracode`** (or `/effort ultra`) raises that to exhaustive fan-out, while `noflow` or `/effort off` opt out |
 | — | **Git worktree isolation**, **real cost accounting**, **`/deep-research`**, and a **quality-pattern stdlib** |
 
 ## Commands
@@ -102,10 +102,10 @@ The same model — on Pi, plus the production pieces a real run needs:
 /workflows save <name>      save the latest run's script as a reusable /<name> command
 /workflows pause|resume|stop|rm <id>
 /workflows-trigger off|on|status
-                            disable, restore, or inspect keyword-triggered workflows mode
+                            disable, restore, or inspect only the workflow/workflows keyword trigger
 /workflows-models           map the small / medium / big tiers to real models
-/ultracode [off]            ultracode: auto-arm an exhaustive workflow for every substantive message
-/effort off|high|ultra      finer control over the standing opt-in (high = thorough, ultra = ultracode)
+/ultracode [off]            raise automatic workflows to exhaustive fan-out; off disables them
+/effort off|high|ultra      control substantive-message auto-workflows (default high; off disables)
 
 /deep-research <question>   web-researched, source-cross-checked report
 /adversarial-review <task>  findings vetted by skeptical reviewers
@@ -143,7 +143,7 @@ Workflows run in a Node `vm` sandbox; `Date.now()`, `Math.random()`, `new Date()
 
 ```bash
 npm install
-npm test     # biome + tsc + 651 unit tests
+npm test     # biome + tsc + 661 unit tests
 ```
 
 Every feature is also verified end-to-end against a real Pi subagent session before release.

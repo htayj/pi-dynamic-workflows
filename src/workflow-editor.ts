@@ -1,13 +1,15 @@
 /**
  * "Workflows mode" input affordance, à la a smart input box:
  *
+ *  - Substantive interactive messages auto-arm a workflow by default.
  *  - While the editor text contains the word `workflow`/`workflows`, those letters
  *    render as a flowing rainbow, signalling that submitting will engage a workflow.
  *  - Pressing Backspace immediately after such a word toggles the highlight OFF
- *    (the word stays, but turns plain white) — a non-destructive "don't run a
- *    workflow after all". Re-typing a fresh trigger word turns it back on.
- *  - When the highlight is ON at submit time, the user's message is transformed to
- *    instruct Pi to actually run the workflow tool.
+ *    (the word stays, but turns plain white) — a non-destructive one-shot keyword
+ *    disarm. Substantive auto-workflows still require `noflow` or `/effort off`.
+ *    Re-typing a fresh trigger word turns it back on.
+ *  - When a message is automatically armed at submit time, the user's message is
+ *    transformed to instruct Pi to actually run the workflow tool.
  *
  * Implementation: we replace the core editor with a thin subclass of the exported
  * `CustomEditor` (which itself extends pi-tui's `Editor`), overriding only
@@ -23,7 +25,13 @@ import {
   type ExtensionUIContext,
 } from "@earendil-works/pi-coding-agent";
 import type { EditorTheme, TUI } from "@earendil-works/pi-tui";
-import { type EffortState, effortDirective, isSubstantive } from "./effort-command.js";
+import {
+  DEFAULT_EFFORT_LEVEL,
+  type EffortLevel,
+  type EffortState,
+  effortDirective,
+  isSubstantive,
+} from "./effort-command.js";
 
 // A trigger is `workflow`/`workflows` (substring, case-insensitive) that is NOT
 // immediately preceded by `/` — so a slash command like `/workflows` or `/workflow`
@@ -34,6 +42,8 @@ const TRIGGER = /(?<!\/)workflows?/i;
 const TRIGGER_G = /(?<!\/)workflows?/gi;
 /** True when the text immediately before the cursor ends with a trigger word. */
 const TRIGGER_AT_END = /(?<!\/)workflows?$/i;
+/** Per-message opt-out word for all automatic workflow forcing. */
+const NOFLOW = /\bnoflow\b/i;
 
 /** 256-color ring cycling through the spectrum — shifted by a tick to "flow". */
 export const RAINBOW = [
@@ -47,6 +57,14 @@ export function hasTrigger(text: string): boolean {
 
 export function endsWithTrigger(textBeforeCursor: string): boolean {
   return TRIGGER_AT_END.test(textBeforeCursor);
+}
+
+export function hasNoFlowOptOut(text: string): boolean {
+  return NOFLOW.test(text);
+}
+
+function effectiveEffortLevel(effort?: EffortState): EffortLevel {
+  return effort?.level ?? DEFAULT_EFFORT_LEVEL;
 }
 
 /** Shared, mutable view of whether "workflows mode" is currently armed. */
@@ -281,7 +299,7 @@ export function registerWorkflowTriggerCommand(pi: ExtensionAPI, state: Workflow
         state.keywordTriggerEnabled = true;
         state.suppressedKeywordText = undefined;
         await say(
-          "Workflows keyword trigger on — mentioning workflow/workflows in an interactive message will auto-arm workflows mode.",
+          "Workflows keyword trigger on — mentioning workflow/workflows in an interactive message will auto-arm workflows mode. Substantive messages also auto-arm by default unless /effort off or noflow is used.",
         );
         return;
       }
@@ -290,7 +308,7 @@ export function registerWorkflowTriggerCommand(pi: ExtensionAPI, state: Workflow
         state.active = false;
         state.suppressedKeywordText = undefined;
         await say(
-          "Workflows keyword trigger off — messages can mention workflow/workflows without forcing the workflow tool. Use /workflows-trigger on to restore.",
+          "Workflows keyword trigger off — the workflow/workflows keyword no longer forces the workflow tool by itself. Substantive messages may still auto-arm unless /effort off or noflow is used. Use /workflows-trigger on to restore keyword forcing.",
         );
         return;
       }
@@ -329,13 +347,21 @@ export function installWorkflowEditor(
   // BEFORE the input event fires (the actual prompt processing is async).
   pi.on("input", (event: { source?: string; text?: string }) => {
     if (event.source !== "interactive" || !event.text) return { action: "continue" } as const;
-    // Arm either when the user typed the "workflow(s)" trigger, or when standing
-    // effort mode is on and the message is a substantive request.
+    // Never force slash commands or raw messages containing the opt-out word
+    // `noflow`. Backspace one-shot suppression only suppresses the keyword
+    // trigger; it does not bypass default substantive-message auto-workflows.
     const normalizedText = event.text.trim();
+    if (normalizedText.startsWith("/")) return { action: "continue" } as const;
     const suppressed = state.suppressedKeywordText === normalizedText;
     if (suppressed) state.suppressedKeywordText = undefined;
+    if (hasNoFlowOptOut(event.text)) return { action: "continue" } as const;
+
+    // Arm either when the user typed the "workflow(s)" trigger, or when automatic
+    // effort mode is not off and the message is a substantive request. If no
+    // EffortState is provided, default to HIGH so the extension is default-on.
     const triggered = state.keywordTriggerEnabled && !suppressed && hasTrigger(event.text);
-    const byEffort = !triggered && !!effort && effort.level !== "off" && isSubstantive(event.text);
+    const effortLevel = effectiveEffortLevel(effort);
+    const byEffort = effortLevel !== "off" && isSubstantive(event.text);
     if (!triggered && !byEffort) return { action: "continue" } as const;
     try {
       if (savedTools === undefined) {
@@ -349,7 +375,7 @@ export function installWorkflowEditor(
     } catch {
       // Tool restriction is best-effort; the directive still forces the workflow.
     }
-    const extra = byEffort && effort ? effortDirective(effort.level) : undefined;
+    const extra = byEffort ? effortDirective(effortLevel) : undefined;
     return { action: "transform", text: buildForcedWorkflowPrompt(event.text, extra) } as const;
   });
 

@@ -16,6 +16,7 @@
 import assert from "node:assert/strict";
 import { describe, it, mock } from "node:test";
 import type { ExtensionAPI, ExtensionUIContext } from "@earendil-works/pi-coding-agent";
+import { effortDirective } from "../src/effort-command.js";
 import { buildForcedWorkflowPrompt, WORKFLOW_TOOL_NAME, type WorkflowModeState } from "../src/workflow-editor.js";
 
 // ---------------------------------------------------------------------------
@@ -93,7 +94,7 @@ describe("installWorkflowEditor - tool availability", () => {
     // Verify transform result
     assert.deepEqual(result, {
       action: "transform",
-      text: buildForcedWorkflowPrompt("przetestuj to workflow zadanie"),
+      text: buildForcedWorkflowPrompt("przetestuj to workflow zadanie", effortDirective("high")),
     });
 
     // Verify getActiveTools was called

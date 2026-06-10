@@ -37,11 +37,15 @@ function registerAndCapture(state: ReturnType<typeof createEffortState>) {
   return cmds;
 }
 
+test("createEffortState defaults automatic workflows to high", () => {
+  assert.equal(createEffortState().level, "high");
+});
+
 test("registerEffortCommand: /effort toggles the shared state", async () => {
   const state = createEffortState();
   const effort = registerAndCapture(state).get("effort");
   assert.ok(effort, "/effort registered");
-  assert.equal(state.level, "off");
+  assert.equal(state.level, "high");
 
   await effort?.handler("ultra", {});
   assert.equal(state.level, "ultra");

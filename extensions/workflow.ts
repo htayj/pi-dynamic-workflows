@@ -27,12 +27,13 @@ export default function extension(pi: ExtensionAPI) {
   registerWorkflowModelsCommand(pi);
   registerBuiltinWorkflows(pi, { cwd });
   registerAllSavedWorkflows(pi, cwd, storage, manager);
-  // Standing /effort opt-in (off|high|ultra): auto-arms a workflow for substantive
-  // messages, like CC's ultracode. Shared with the editor's input hook below.
+  // Standing /effort control (off|high|ultra): substantive messages auto-arm a
+  // workflow by default (high) unless /effort off or per-message noflow is used.
+  // Shared with the editor's input hook below.
   const effort = createEffortState();
   registerEffortCommand(pi, effort);
   // "Workflows mode": type `workflow(s)` to arm a forced workflow (animated),
-  // Backspace right after the word disarms it. Registers the `input` hook now;
+  // Backspace right after the word disarms the keyword trigger. Registers the `input` hook now;
   // the editor itself is installed once the UI is available (session_start).
   let editorInstalled = false;
 
