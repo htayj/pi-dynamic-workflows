@@ -7,6 +7,7 @@ import { join, resolve } from "node:path";
 import type { AgentHistoryEntry } from "./agent-history.js";
 import { WORKFLOW_RUNS_DIR } from "./config.js";
 import type { WorkflowErrorCode } from "./errors.js";
+import type { WorkflowRecoveryState } from "./workflow-recovery.js";
 
 export type RunStatus = "pending" | "running" | "paused" | "completed" | "failed" | "aborted";
 
@@ -55,6 +56,8 @@ export interface PersistedRunState {
   };
   /** Cached agent results for resume, keyed by deterministic call index. */
   journal?: Array<{ index: number; hash: string; result: unknown }>;
+  /** Automatic self-recovery attempt state, shown in /workflows. */
+  recovery?: WorkflowRecoveryState;
 }
 
 export interface RunPersistence {

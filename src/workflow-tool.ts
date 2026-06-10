@@ -11,7 +11,7 @@ import {
   type WorkflowSnapshot,
 } from "./display.js";
 import { WorkflowError, WorkflowErrorCode } from "./errors.js";
-import { parseWorkflowScript, type WorkflowRunResult } from "./workflow.js";
+import { parseWorkflowScript, type WorkflowMeta, type WorkflowRunResult } from "./workflow.js";
 import { WorkflowManager } from "./workflow-manager.js";
 import { createWorkflowStorage, type WorkflowStorage } from "./workflow-saved.js";
 
@@ -159,7 +159,7 @@ export function createWorkflowTool(options: WorkflowToolOptions = {}): ToolDefin
     },
     async execute(_toolCallId, params, signal, onUpdate, ctx) {
       const script = normalizeWorkflowScript(params.script);
-      const parsed = parseWorkflowScript(script);
+      const meta = safeParseWorkflowMeta(script);
 
       // checkpoint() reaches the human only on a UI-bearing foreground run; a
       // background run is detached, so checkpoint() falls back to its headless
@@ -183,7 +183,7 @@ export function createWorkflowTool(options: WorkflowToolOptions = {}): ToolDefin
           tokenBudget: params.tokenBudget,
         });
         return {
-          content: [{ type: "text", text: backgroundStartedText(parsed.meta.name, runId) }],
+          content: [{ type: "text", text: backgroundStartedText(meta.name, runId) }],
           details: { runId, background: true },
         };
       }
@@ -192,7 +192,7 @@ export function createWorkflowTool(options: WorkflowToolOptions = {}): ToolDefin
       // run shows up live in the /workflows navigator and the task panel while it
       // runs, then stays in history afterwards. We still block on the result and
       // return it inline, so the model gets the full output in the same turn.
-      let snapshot: WorkflowSnapshot = createWorkflowSnapshot(parsed.meta);
+      let snapshot: WorkflowSnapshot = createWorkflowSnapshot(meta);
       const display = createToolUpdateWorkflowDisplay(onUpdate, undefined, {
         key: "workflow",
         streamToolUpdates: true,
@@ -323,6 +323,14 @@ function normalizeWorkflowScript(script: string): string {
   const fence = text.match(/^```(?:js|javascript)?\s*\n([\s\S]*?)\n```$/i);
   if (fence) text = fence[1].trim();
   return text;
+}
+
+function safeParseWorkflowMeta(script: string): WorkflowMeta {
+  try {
+    return parseWorkflowScript(script).meta;
+  } catch {
+    return { name: "workflow", description: "Workflow pending validation/recovery", phases: [] };
+  }
 }
 
 function _isAbortError(error: unknown): boolean {

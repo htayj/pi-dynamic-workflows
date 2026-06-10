@@ -11,7 +11,18 @@ import { type Component, type TUI, truncateToWidth, visibleWidth } from "@earend
 import type { ManagedRun, WorkflowManager } from "./workflow-manager.js";
 import type { WorkflowStorage } from "./workflow-saved.js";
 
-const RUN_EVENTS = ["agentStart", "agentEnd", "phase", "log", "complete", "error", "stopped", "paused", "resumed"];
+const RUN_EVENTS = [
+  "agentStart",
+  "agentEnd",
+  "phase",
+  "log",
+  "complete",
+  "error",
+  "stopped",
+  "paused",
+  "resumed",
+  "recovery",
+];
 
 export interface TaskPanelOptions {
   storage?: WorkflowStorage;
@@ -116,7 +127,8 @@ export function renderPanel(manager: WorkflowManager, theme: Theme, width?: numb
     const done = agents.filter((a) => a.status === "done").length;
     const icon = r.status === "paused" ? "⏸" : "◆";
     const phase = live?.snapshot.currentPhase ? ` · ${live.snapshot.currentPhase}` : "";
-    return `  ${icon} ${r.workflowName}  ${done}/${agents.length} agents${phase}`;
+    const recovery = r.recovery?.status ? ` · recovery ${r.recovery.status}` : "";
+    return `  ${icon} ${r.workflowName}  ${done}/${agents.length} agents${phase}${recovery}`;
   });
   // Finished runs leave this live panel but are kept in the navigator. Tell the
   // user so a completed run doesn't look like it vanished.

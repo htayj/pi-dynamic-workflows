@@ -93,6 +93,7 @@ export {
 } from "./workflow-editor.js";
 export type { ManagedRun, WorkflowManagerOptions } from "./workflow-manager.js";
 export { WorkflowManager } from "./workflow-manager.js";
+export type { WorkflowRecoveryDecision, WorkflowRecoveryState, WorkflowRecoveryStatus } from "./workflow-recovery.js";
 export type { SavedWorkflow, WorkflowStorage } from "./workflow-saved.js";
 export { createWorkflowStorage } from "./workflow-saved.js";
 export type { WorkflowToolInput, WorkflowToolOptions } from "./workflow-tool.js";

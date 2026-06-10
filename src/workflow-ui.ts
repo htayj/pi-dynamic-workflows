@@ -56,6 +56,7 @@ interface RunRow {
   runId: string;
   name: string;
   status: string;
+  recoveryStatus?: string;
   done: number;
   total: number;
   tokens: number;
@@ -106,6 +107,7 @@ export class NavigatorModel {
         runId: p.runId,
         name: live?.snapshot.name ?? p.workflowName,
         status: live?.status ?? p.status,
+        recoveryStatus: live?.recovery?.status ?? p.recovery?.status,
         done: agents.filter((a) => a.status === "done").length,
         total: agents.length,
         tokens: (live?.snapshot.tokenUsage ?? p.tokenUsage)?.total ?? 0,
@@ -370,7 +372,8 @@ export function renderNavigator(
     // Render runs
     runs.forEach((r, i) => {
       const icon = STATUS_ICON[r.status] ?? "?";
-      const meta = [`${r.done}/${r.total}`, fmtTokens(r.tokens), r.cost > 0 ? `$${r.cost.toFixed(4)}` : ""]
+      const recovery = r.recoveryStatus ? `recovery ${r.recoveryStatus}` : "";
+      const meta = [`${r.done}/${r.total}`, fmtTokens(r.tokens), r.cost > 0 ? `$${r.cost.toFixed(4)}` : "", recovery]
         .filter(Boolean)
         .join(" · ");
       lines.push(sel(i, `${icon} ${r.name}  ${dim(`${r.runId} · ${r.status} · ${meta}`)}`));
@@ -563,7 +566,18 @@ export function openWorkflowNavigator(
   return ui.custom<void>(
     (tui: TUI, theme: Theme, _keybindings, done: (r: undefined) => void) => {
       const rerender = () => tui.requestRender();
-      const events = ["agentStart", "agentEnd", "phase", "log", "complete", "error", "stopped", "paused", "resumed"];
+      const events = [
+        "agentStart",
+        "agentEnd",
+        "phase",
+        "log",
+        "complete",
+        "error",
+        "stopped",
+        "paused",
+        "resumed",
+        "recovery",
+      ];
       const onEvent = () => rerender();
       for (const ev of events) manager.on(ev, onEvent);
       const cleanup = () => {

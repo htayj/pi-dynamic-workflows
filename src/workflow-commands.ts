@@ -28,7 +28,8 @@ function summarizeRun(run: PersistedRunState): string {
   const done = run.agents.filter((a) => a.status === "done").length;
   const total = run.agents.length;
   const tokens = run.tokenUsage ? ` · ${run.tokenUsage.total.toLocaleString()} tok` : "";
-  return `${icon} ${run.runId}  ${run.workflowName} [${run.status}] ${done}/${total} agents${tokens}`;
+  const recovery = run.recovery?.status ? ` · recovery ${run.recovery.status}` : "";
+  return `${icon} ${run.runId}  ${run.workflowName} [${run.status}] ${done}/${total} agents${tokens}${recovery}`;
 }
 
 function oneLineProgress(snapshot: WorkflowSnapshot): string {
@@ -61,7 +62,7 @@ function watchRun(manager: WorkflowManager, pi: ExtensionAPI, ctx: ExtensionComm
     if (!e || e.runId === id) update();
   };
   let settled = false;
-  const progressEvents = ["agentStart", "agentEnd", "phase", "log"];
+  const progressEvents = ["agentStart", "agentEnd", "phase", "log", "recovery"];
   const finalEvents = ["complete", "error", "stopped", "paused"];
   const finish = (e: { runId?: string }) => {
     if (e && e.runId !== id) return;
@@ -88,6 +89,11 @@ function watchRun(manager: WorkflowManager, pi: ExtensionAPI, ctx: ExtensionComm
 function renderPersistedStatus(run: PersistedRunState): string {
   const lines = [`${STATUS_ICON[run.status] ?? "?"} ${run.workflowName} (${run.runId}) — ${run.status}`];
   if (run.currentPhase) lines.push(`  phase: ${run.currentPhase}`);
+  if (run.recovery) {
+    lines.push(`  recovery: ${run.recovery.status} (${run.recovery.attempts}/${run.recovery.maxAttempts})`);
+    if (run.recovery.reason) lines.push(`  recovery reason: ${run.recovery.reason}`);
+    if (run.recovery.lastError) lines.push(`  recovery error: ${run.recovery.lastError}`);
+  }
   for (const agent of run.agents) {
     const icon =
       agent.status === "done" ? "✓" : agent.status === "error" ? "✗" : agent.status === "running" ? "◆" : "·";

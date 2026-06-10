@@ -3,7 +3,7 @@
 [![npm](https://img.shields.io/npm/v/@quintinshaw/pi-dynamic-workflows?color=cb3837&logo=npm)](https://www.npmjs.com/package/@quintinshaw/pi-dynamic-workflows)
 [![license](https://img.shields.io/badge/license-MIT-blue)](#license)
 [![for Pi](https://img.shields.io/badge/for-Pi-7c3aed)](https://pi.dev)
-[![tests](https://img.shields.io/badge/tests-663%20passing-success)](#development)
+[![tests](https://img.shields.io/badge/tests-667%20passing-success)](#development)
 
 > **Claude Code–style dynamic workflows for [Pi](https://pi.dev).**
 > Turn one prompt into a fleet of subagents that fan out in parallel, cross-check each other, and hand back a single synthesized answer.
@@ -75,6 +75,7 @@ return await agent('Synthesize the findings and real app-use verification eviden
 
 - **Fan-out orchestration** — `agent()`, `parallel()`, `pipeline()`, `phase()` in a sandboxed script. Up to 16 concurrent / 1000 total subagents; intermediate results stay in variables, not the chat.
 - **Real model routing** — `small` / `medium` / `big` tiers (or an exact `model`) per agent. It actually switches the subagent's model — cheap work on a light one, hard synthesis on a big one.
+- **Automatic self-recovery** — if a foreground or background workflow fails, a guarded diagnosis workflow inspects the failed script, args, logs, error, and agent failures once; recoverable runs are rewritten and rerun automatically, while unrecoverable runs surface a clear explanation.
 - **Journaled resume** — an interrupted run replays finished agents from a journal (no re-run, no tokens) and runs only what's left or what you changed.
 - **Git worktree isolation** — `isolation: "worktree"` gives an agent its own branch, so parallel agents can edit the same files without clobbering each other.
 - **Real token & cost accounting** — read from each subagent's session, not estimated. `budget` gates on the real total and `/workflows` shows the dollar cost.
@@ -147,11 +148,13 @@ Non-trivial workflows that implement, change, or verify application behavior mus
 
 Workflows run in a Node `vm` sandbox; `Date.now()`, `Math.random()`, `new Date()`, and `require`/`import`/`fs`/network are unavailable, so runs stay reproducible — which is what makes resume reliable.
 
+When a run fails for a non-abort reason, the manager makes one conservative automatic recovery attempt by default. Recovery itself is a small workflow-runtime run that asks a diagnosis agent for a structured decision and, only when recoverable, executes the corrected workflow. Stop, pause, Esc/user aborts, and corrected-workflow failures do not recurse into additional recovery attempts; `/workflows` shows the recovery status and reason alongside the run.
+
 ## Development
 
 ```bash
 npm install
-npm test     # biome + tsc + 663 unit tests
+npm test     # biome + tsc + 667 unit tests
 ```
 
 Every feature is also verified end-to-end against a real Pi subagent session before release.
