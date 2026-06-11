@@ -298,6 +298,17 @@ test("runGimpGauntlet uses raw Xvfb fallback without unsafe shell artifacts", as
     assert.doesNotMatch(driverScript, /eval/);
     assert.doesNotMatch(driverScript, /pi-gimp-gauntlet\.gimp/);
     assert.doesNotMatch(driverScript, /\\\$\{MAGICK_BIN/);
+    assert.doesNotMatch(
+      driverScript,
+      /windowactivate/,
+      "driver should not rely on _NET_ACTIVE_WINDOW window-manager support",
+    );
+    assert.match(
+      driverScript,
+      /locate_canvas_box/,
+      "driver should target the visible drawable canvas from a screenshot",
+    );
+    assert.match(driverScript, /windowfocus/, "driver should use direct X focus fallback for headless Xvfb sessions");
     assert.doesNotMatch(wrapperScript, /pi-gimp-gauntlet\.xvfb/);
   } finally {
     await rm(temp, { recursive: true, force: true });

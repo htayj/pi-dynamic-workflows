@@ -440,6 +440,111 @@ PY
   fi
 }
 
+focus_gimp_window() {
+  "$XDOTOOL_BIN" windowraise "$win" >/dev/null 2>&1 || true
+  "$XDOTOOL_BIN" windowfocus --sync "$win" >/dev/null 2>&1 || "$XDOTOOL_BIN" windowfocus "$win" >/dev/null 2>&1 || true
+}
+
+find_gimp_window() {
+  local ids
+  ids="$("$XDOTOOL_BIN" search --onlyvisible --class gimp 2>/dev/null || true)
+$("$XDOTOOL_BIN" search --onlyvisible --name 'GIMP|GNU Image Manipulation Program|input-canvas' 2>/dev/null || true)"
+  local best=""
+  local best_area=0
+  local candidate
+  for candidate in $ids; do
+    local geometry=""
+    geometry="$("$XDOTOOL_BIN" getwindowgeometry --shell "$candidate" 2>/dev/null)" || continue
+    local key=""
+    local value=""
+    local width=0
+    local height=0
+    while IFS='=' read -r key value; do
+      case "$key" in
+        WIDTH)
+          if [[ "$value" =~ ^[0-9]+$ ]]; then width="$value"; fi
+          ;;
+        HEIGHT)
+          if [[ "$value" =~ ^[0-9]+$ ]]; then height="$value"; fi
+          ;;
+      esac
+    done <<< "$geometry"
+    if [ "$width" -lt 500 ] || [ "$height" -lt 350 ]; then
+      continue
+    fi
+    local area=$((width * height))
+    if [ "$area" -gt "$best_area" ]; then
+      best="$candidate"
+      best_area="$area"
+    fi
+  done
+  if [ -n "$best" ]; then
+    printf '%s\n' "$best"
+  fi
+}
+
+locate_canvas_box() {
+  local mode_arg="fallback"
+  if [ "$#" -gt 0 ]; then mode_arg="$1"; fi
+  "$PYTHON_BIN" - "$BEFORE_PATH" "$X" "$Y" "$WIDTH" "$HEIGHT" "$mode_arg" <<'PY'
+import sys
+from PIL import Image
+
+path, wx, wy, ww, wh, mode = sys.argv[1:7]
+wx, wy, ww, wh = [int(v) for v in (wx, wy, ww, wh)]
+require_found = mode == "required"
+image = Image.open(path).convert("RGB")
+left = max(0, wx)
+top = max(0, wy)
+right = min(image.width, wx + ww)
+bottom = min(image.height, wy + wh)
+
+# Prefer the actual white image drawable rather than the GIMP window center.
+# GIMP 3.x first-run/welcome surfaces and dark chrome contain scattered bright
+# text/icons, but not a large dense neutral rectangle like the generated canvas.
+best = None
+pixels = image.load()
+for threshold in (245, 230, 210, 190, 170):
+    xs = []
+    ys = []
+    for y in range(top, bottom):
+        for x in range(left, right):
+            r, g, b = pixels[x, y]
+            if r >= threshold and g >= threshold and b >= threshold and max(r, g, b) - min(r, g, b) <= 48:
+                xs.append(x)
+                ys.append(y)
+    if not xs:
+        continue
+    box = (min(xs), min(ys), max(xs), max(ys))
+    area = max((box[2] - box[0] + 1) * (box[3] - box[1] + 1), 1)
+    density = len(xs) / area
+    if len(xs) >= 8000 and area >= 25000 and density >= 0.18:
+        best = box
+        break
+
+if best is None:
+    if require_found:
+        sys.exit(3)
+    # Conservative fallback: center of the likely image workspace, avoiding
+    # menus/toolboxes/status bars better than a raw window-center stroke.
+    inset_x = max(90, ww // 4)
+    inset_top = max(110, wh // 4)
+    inset_bottom = max(90, wh // 5)
+    best = (wx + inset_x, wy + inset_top, wx + ww - inset_x, wy + wh - inset_bottom)
+
+l, t, r, b = best
+# Stay inside the drawable/padding so rulers, scrollbars, and status bars are
+# not mistaken for the canvas target.
+pad_x = max(8, (r - l) // 20)
+pad_y = max(8, (b - t) // 20)
+l = max(0, min(image.width - 1, l + pad_x))
+t = max(0, min(image.height - 1, t + pad_y))
+r = max(l + 1, min(image.width - 1, r - pad_x))
+b = max(t + 1, min(image.height - 1, b - pad_y))
+print(l, t, r, b)
+PY
+}
+
 export HOME="$TMP_HOME/home"
 export XDG_CONFIG_HOME="$TMP_HOME/xdg-config"
 export XDG_CACHE_HOME="$TMP_HOME/xdg-cache"
@@ -449,8 +554,14 @@ mkdir -p "$HOME" "$XDG_CONFIG_HOME" "$XDG_CACHE_HOME" "$XDG_DATA_HOME"
 gimp_stdout="$TMP_HOME/gimp.stdout.log"
 gimp_stderr="$TMP_HOME/gimp.stderr.log"
 
+cat >"$TMP_HOME/gimprc" <<'EOF'
+(show-welcome-dialog no)
+(initial-zoom-to-fit yes)
+(default-show-all no)
+EOF
+
 log "Launching GIMP with isolated HOME=$HOME"
-"$GIMP_BIN" --new-instance "$CANVAS_PATH" >"$gimp_stdout" 2>"$gimp_stderr" &
+"$GIMP_BIN" --new-instance --no-splash --gimprc "$TMP_HOME/gimprc" "$CANVAS_PATH" >"$gimp_stdout" 2>"$gimp_stderr" &
 gimp_pid=$!
 
 cleanup() {
@@ -464,10 +575,7 @@ trap cleanup EXIT
 
 win=""
 for _ in $(seq 1 75); do
-  win=$("$XDOTOOL_BIN" search --onlyvisible --class gimp 2>/dev/null | tail -n 1 || true)
-  if [ -z "$win" ]; then
-    win=$("$XDOTOOL_BIN" search --onlyvisible --name 'GIMP|GNU Image Manipulation Program|input-canvas' 2>/dev/null | tail -n 1 || true)
-  fi
+  win="$(find_gimp_window || true)"
   if [ -n "$win" ]; then break; fi
   if ! kill -0 "$gimp_pid" >/dev/null 2>&1; then
     log "GIMP exited before a visible window appeared"
@@ -484,19 +592,14 @@ if [ -z "$win" ]; then
 fi
 
 log "Driving GIMP window $win"
-"$XDOTOOL_BIN" windowactivate --sync "$win"
+focus_gimp_window
 sleep 1
-if ! capture_root "$BEFORE_PATH"; then
-  log "Failed to capture before screenshot" >&2
-  exit 31
-fi
-
-# Select paintbrush (P) and reset colors (D). Then draw broad strokes in the
-# central canvas area. Coordinates are intentionally relative to the window so
-# the gauntlet remains non-destructive and independent of user configuration.
-"$XDOTOOL_BIN" key --window "$win" d || true
-"$XDOTOOL_BIN" key --window "$win" p || true
+"$XDOTOOL_BIN" key --clearmodifiers Escape >/dev/null 2>&1 || true
 sleep 0.5
+refreshed_win="$(find_gimp_window || true)"
+if [ -n "$refreshed_win" ]; then
+  win="$refreshed_win"
+fi
 
 geometry="$("$XDOTOOL_BIN" getwindowgeometry --shell "$win")" || {
   log "Failed to read GIMP window geometry" >&2
@@ -519,17 +622,90 @@ if [ "$WIDTH" -le 0 ] || [ "$HEIGHT" -le 0 ]; then
   log "Invalid GIMP window geometry: $geometry" >&2
   exit 24
 fi
-cx=$((X + WIDTH / 2))
-cy=$((Y + HEIGHT / 2))
-span=$(( WIDTH < HEIGHT ? WIDTH / 5 : HEIGHT / 5 ))
-if [ "$span" -lt 80 ]; then span=80; fi
 
-"$XDOTOOL_BIN" mousemove $((cx - span)) $((cy - span))
-"$XDOTOOL_BIN" mousedown 1
-"$XDOTOOL_BIN" mousemove --sync $((cx + span)) $((cy + span))
-"$XDOTOOL_BIN" mousemove --sync $((cx + span)) $((cy - span / 2))
-"$XDOTOOL_BIN" mousemove --sync $((cx - span / 2)) $((cy + span))
-"$XDOTOOL_BIN" mouseup 1
+canvas_box=""
+for _ in $(seq 1 40); do
+  if ! capture_root "$BEFORE_PATH"; then
+    log "Failed to capture before screenshot" >&2
+    exit 31
+  fi
+  if canvas_box="$(locate_canvas_box required 2>/dev/null)" && [ -n "$canvas_box" ]; then
+    break
+  fi
+  focus_gimp_window
+  "$XDOTOOL_BIN" key --clearmodifiers Escape >/dev/null 2>&1 || true
+  sleep 0.5
+done
+if [ -z "$canvas_box" ]; then
+  log "Timed out waiting for the input canvas to become visible" >&2
+  exit 25
+fi
+read -r canvas_left canvas_top canvas_right canvas_bottom <<< "$canvas_box"
+log "Targeting canvas box $canvas_left,$canvas_top to $canvas_right,$canvas_bottom"
+canvas_width=$((canvas_right - canvas_left))
+canvas_height=$((canvas_bottom - canvas_top))
+if [ "$canvas_width" -le 20 ] || [ "$canvas_height" -le 20 ]; then
+  log "Invalid canvas target: $canvas_box" >&2
+  exit 26
+fi
+
+focus_gimp_window
+cx=$((canvas_left + canvas_width / 2))
+cy=$((canvas_top + canvas_height / 2))
+"$XDOTOOL_BIN" mousemove --sync "$cx" "$cy"
+"$XDOTOOL_BIN" click --clearmodifiers 1
+sleep 0.3
+
+# Select/configure paintbrush with real focused keyboard events. Avoid sending
+# keys directly to a top-level GTK window: under bare Xvfb that path can miss
+# GIMP's canvas widget even when the process window is visible.
+focus_gimp_window
+"$XDOTOOL_BIN" key --clearmodifiers d || true
+sleep 0.1
+"$XDOTOOL_BIN" key --clearmodifiers p || true
+sleep 0.2
+for _ in $(seq 1 12); do
+  "$XDOTOOL_BIN" key --clearmodifiers bracketright >/dev/null 2>&1 || true
+  sleep 0.02
+done
+sleep 0.3
+
+stroke() {
+  local x1="$1"
+  local y1="$2"
+  local x2="$3"
+  local y2="$4"
+  "$XDOTOOL_BIN" mousemove --sync "$x1" "$y1"
+  sleep 0.05
+  "$XDOTOOL_BIN" mousedown 1
+  sleep 0.08
+  for step in $(seq 1 24); do
+    local x=$((x1 + (x2 - x1) * step / 24))
+    local y=$((y1 + (y2 - y1) * step / 24))
+    "$XDOTOOL_BIN" mousemove --sync "$x" "$y"
+    sleep 0.015
+  done
+  sleep 0.05
+  "$XDOTOOL_BIN" mouseup 1
+  sleep 0.1
+}
+
+x1=$((canvas_left + canvas_width / 6))
+y1=$((canvas_top + canvas_height / 4))
+x2=$((canvas_right - canvas_width / 6))
+y2=$((canvas_bottom - canvas_height / 4))
+x3=$((canvas_left + canvas_width / 5))
+y3=$((canvas_bottom - canvas_height / 5))
+x4=$((canvas_right - canvas_width / 5))
+y4=$((canvas_top + canvas_height / 5))
+x5=$((canvas_left + canvas_width / 4))
+y5=$cy
+x6=$((canvas_right - canvas_width / 4))
+y6=$cy
+
+stroke "$x1" "$y1" "$x2" "$y2"
+stroke "$x3" "$y3" "$x4" "$y4"
+stroke "$x5" "$y5" "$x6" "$y6"
 sleep 1
 if ! capture_root "$AFTER_PATH"; then
   log "Failed to capture after screenshot" >&2
