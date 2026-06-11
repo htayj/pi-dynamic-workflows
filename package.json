@@ -18,11 +18,13 @@
     "dist/",
     "extensions/",
     "src/",
-    "README.md"
+    "README.md",
+    "docs/computer-use.md"
   ],
   "scripts": {
     "test": "npm run check && npm run build && npm run test:unit",
     "test:unit": "tsx --test tests/**/*.test.ts",
+    "test:gauntlet": "node --import tsx -e \"import('./src/computer-use.ts').then(async ({ runGimpGauntlet }) => { console.log(JSON.stringify(await runGimpGauntlet({ cwd: process.cwd() }), null, 2)); });\"",
     "check": "biome check .",
     "format": "biome format --write .",
     "lint": "biome lint .",

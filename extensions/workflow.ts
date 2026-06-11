@@ -1,5 +1,6 @@
 import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
 import {
+  createComputerUseTools,
   createEffortState,
   createWorkflowStorage,
   createWorkflowTool,
@@ -22,7 +23,9 @@ export default function extension(pi: ExtensionAPI) {
   const manager = new WorkflowManager({ cwd, loadSavedWorkflow: (name) => storage.load(name)?.script });
 
   const workflowTool = createWorkflowTool({ cwd, manager, storage });
+  const computerUseTools = createComputerUseTools(cwd);
   pi.registerTool(workflowTool);
+  for (const tool of computerUseTools) pi.registerTool(tool);
   registerWorkflowCommands(pi, manager, { storage, cwd });
   registerWorkflowModelsCommand(pi);
   registerBuiltinWorkflows(pi, { cwd });
@@ -39,8 +42,10 @@ export default function extension(pi: ExtensionAPI) {
 
   pi.on("session_start", (_event: unknown, ctx: ExtensionContext) => {
     const active = pi.getActiveTools();
-    if (!active.includes(workflowTool.name)) {
-      pi.setActiveTools([...active, workflowTool.name]);
+    const requiredToolNames = [workflowTool.name, ...computerUseTools.map((tool) => tool.name)];
+    const missingToolNames = requiredToolNames.filter((name) => !active.includes(name));
+    if (missingToolNames.length > 0) {
+      pi.setActiveTools([...active, ...missingToolNames]);
     }
     // Tell the manager the session's main model so "explore" agents auto-tier
     // down to a lighter same-family sibling (e.g. Claude → Haiku).

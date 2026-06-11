@@ -15,6 +15,7 @@ import type { Static, TSchema } from "typebox";
 import { Check, Convert } from "typebox/value";
 import { type AgentHistoryEntry, compactAgentHistory } from "./agent-history.js";
 import { applyToolPolicy } from "./agent-registry.js";
+import { createComputerUseTools } from "./computer-use.js";
 import { WorkflowError, WorkflowErrorCode } from "./errors.js";
 import { loadModelTierConfig, type ModelTierConfig, resolveTierModel } from "./model-tier-config.js";
 import { createStructuredOutputTool, type StructuredOutputCapture } from "./structured-output.js";
@@ -150,6 +151,10 @@ export function resolveAgentModelSpec(
   return undefined;
 }
 
+export function createWorkflowAgentTools(cwd: string): ToolDefinition[] {
+  return [...createCodingTools(cwd), ...createComputerUseTools(cwd)];
+}
+
 export interface WorkflowAgentOptions {
   cwd?: string;
   /** Extra tools available to the subagent in addition to the structured output tool. */
@@ -255,12 +260,14 @@ export class WorkflowAgent {
   private readonly sessionOptions: Partial<CreateAgentSessionOptions>;
   private readonly instructions?: string;
   private readonly mainModel?: string;
+  private readonly usesDefaultTools: boolean;
   /** Lazily built once; shares the SDK's agentDir/auth so resolved models are authed. */
   private registry?: ModelRegistry;
 
   constructor(options: WorkflowAgentOptions = {}) {
     this.cwd = options.cwd ?? process.cwd();
-    this.baseTools = options.tools ?? createCodingTools(this.cwd);
+    this.usesDefaultTools = options.tools === undefined;
+    this.baseTools = options.tools ?? createWorkflowAgentTools(this.cwd);
     this.sessionOptions = options.session ?? {};
     this.instructions = options.instructions;
     this.mainModel = options.mainModel;
@@ -299,7 +306,7 @@ export class WorkflowAgent {
     // Per-call cwd (e.g. a worktree) needs coding tools bound to that directory,
     // since tools capture their cwd at construction and can't be relocated.
     const runCwd = options.cwd ?? this.cwd;
-    const baseTools = runCwd === this.cwd ? this.baseTools : createCodingTools(runCwd);
+    const baseTools = runCwd === this.cwd || !this.usesDefaultTools ? this.baseTools : createWorkflowAgentTools(runCwd);
     // Apply the agentType tool policy BEFORE adding structured_output, so a
     // restrictive allowlist never strips the schema tool.
     const customTools: ToolDefinition[] = applyToolPolicy(

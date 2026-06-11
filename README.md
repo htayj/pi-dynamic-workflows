@@ -166,11 +166,21 @@ Workflows run in a Node `vm` sandbox; `Date.now()`, `Math.random()`, `new Date()
 
 When a run fails for a non-abort reason, the manager makes one conservative automatic recovery attempt by default. Recovery itself is a small workflow-runtime run that asks a diagnosis agent for a structured decision and, only when recoverable, executes the corrected workflow. Stop, pause, Esc/user aborts, and corrected-workflow failures do not recurse into additional recovery attempts; `/workflows` shows the recovery status and reason alongside the run.
 
+## Computer-use verification
+
+The package also registers GUI computer-use helpers for workflow `Use Verification` phases:
+
+- `computer_use_probe` checks for `gimp`, `xvfb-run`/raw `Xvfb`/`DISPLAY`, `xdotool`, ImageMagick, `python3`, and Pillow.
+- `computer_use_gimp_gauntlet` launches GIMP in an isolated Xvfb/existing-display session, drives it with `xdotool`, captures before/after screenshots, analyzes the image delta, and writes JSON/Markdown reports.
+
+Artifacts default to `.pi/workflow-artifacts/computer-use/<run-id>/`, which is ignored by this repo. Missing native dependencies produce a clear skipped result by default instead of failing the whole workflow. See [docs/computer-use.md](docs/computer-use.md) for details.
+
 ## Development
 
 ```bash
 npm install
-npm test     # biome + tsc + 667 unit tests
+npm test              # biome + tsc + unit tests
+npm run test:gauntlet # optional native GUI gauntlet; skips clearly if GIMP/Xvfb deps are missing
 ```
 
 Every feature is also verified end-to-end against a real Pi subagent session before release.

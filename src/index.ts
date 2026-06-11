@@ -1,12 +1,39 @@
 export type { AdversarialReviewConfig } from "./adversarial-review.js";
 export { generateAdversarialReviewWorkflow, generateMultiPerspectiveWorkflow } from "./adversarial-review.js";
 export type { AgentRunOptions, AgentRunResult, WorkflowAgentOptions } from "./agent.js";
-export { listAvailableModelSpecs, WorkflowAgent } from "./agent.js";
+export { createWorkflowAgentTools, listAvailableModelSpecs, WorkflowAgent } from "./agent.js";
 export type { AgentHistoryEntry, AgentHistoryKind, AgentHistoryRole } from "./agent-history.js";
 export { compactAgentHistory } from "./agent-history.js";
 export type { AgentDefinition, AgentRegistry } from "./agent-registry.js";
 export { applyToolPolicy, listAgentTypes, loadAgentRegistry, resolveAgentType } from "./agent-registry.js";
 export { registerBuiltinWorkflows } from "./builtin-commands.js";
+export type {
+  CommandProbe,
+  CommandResult,
+  CommandRunner,
+  CommandRunnerOptions,
+  ComputerUseCommandName,
+  ComputerUseDependencyProbe,
+  GimpGauntletArtifacts,
+  GimpGauntletCheck,
+  GimpGauntletOptions,
+  GimpGauntletResult,
+  ImagePairAnalysis,
+  PillowProbe,
+} from "./computer-use.js";
+export {
+  buildDependencyProbeMarkdown,
+  buildGimpGauntletMarkdown,
+  createComputerUseProbeTool,
+  createComputerUseTools,
+  createGimpGauntletTool,
+  createProcessCommandRunner,
+  gimpGauntletDependencyIssues,
+  probeComputerUseDependencies,
+  runGimpGauntlet,
+  scoreGimpGauntlet,
+  summarizeGimpGauntletResult,
+} from "./computer-use.js";
 export * from "./config.js";
 export type { DeepResearchConfig } from "./deep-research.js";
 export { generateCodebaseAuditWorkflow, generateDeepResearchWorkflow } from "./deep-research.js";
